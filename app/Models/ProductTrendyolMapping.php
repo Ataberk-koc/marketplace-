@@ -14,6 +14,8 @@ class ProductTrendyolMapping extends Model
         'trendyol_brand_id',
         'trendyol_brand_name',
         'attribute_mappings',
+        'custom_price',
+        'custom_sale_price',
         'is_active',
         'trendyol_product_id',
         'batch_request_id',

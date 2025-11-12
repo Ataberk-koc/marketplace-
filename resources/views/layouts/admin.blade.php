@@ -108,6 +108,16 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.payments.*') ? 'active' : '' }}" href="{{ route('admin.payments.index') }}">
+                                <i class="bi bi-credit-card"></i> Ödemeler
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}" href="{{ route('admin.reports.index') }}">
+                                <i class="bi bi-graph-up"></i> Raporlar
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('admin.trendyol.*') ? 'active' : '' }}" href="{{ route('admin.trendyol.index') }}">
                                 <i class="bi bi-shop"></i> Trendyol Yönetimi
                             </a>

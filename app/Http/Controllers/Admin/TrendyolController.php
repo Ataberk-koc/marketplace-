@@ -183,8 +183,9 @@ class TrendyolController extends Controller
             'dimensionalWeight' => 1, // Varsayılan
             'description' => $product->description ?? $product->name,
             'currencyType' => 'TRY',
-            'listPrice' => (float) $product->price,
-            'salePrice' => (float) ($product->discount_price ?? $product->price),
+            // Custom fiyat varsa onu kullan, yoksa ürünün kendi fiyatı
+            'listPrice' => (float) ($mapping->custom_price ?? $product->price),
+            'salePrice' => (float) ($mapping->custom_sale_price ?? $product->discount_price ?? $product->price),
             'cargoCompanyId' => 10, // Varsayılan kargo (Aras)
             'deliveryDuration' => 3, // 3 gün
             'images' => [],

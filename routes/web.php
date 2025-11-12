@@ -103,6 +103,25 @@ Route::middleware(['auth', 'verified.active', 'admin'])->prefix('admin')->name('
     Route::get('/sizes-bulk-mapping', [App\Http\Controllers\Admin\SizeController::class, 'bulkMapping'])->name('sizes.bulk-mapping');
     Route::post('/sizes-bulk-mapping', [App\Http\Controllers\Admin\SizeController::class, 'saveBulkMapping'])->name('sizes.save-bulk-mapping');
 
+    // Raporlar
+    Route::prefix('reports')->name('reports.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\ReportController::class, 'index'])->name('index');
+        Route::get('/sales', [App\Http\Controllers\Admin\ReportController::class, 'sales'])->name('sales');
+        Route::get('/products', [App\Http\Controllers\Admin\ReportController::class, 'products'])->name('products');
+        Route::get('/categories', [App\Http\Controllers\Admin\ReportController::class, 'categories'])->name('categories');
+        Route::get('/sellers', [App\Http\Controllers\Admin\ReportController::class, 'sellers'])->name('sellers');
+    });
+
+    // Ödemeler
+    Route::prefix('payments')->name('payments.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\PaymentController::class, 'index'])->name('index');
+        Route::get('/{order}', [App\Http\Controllers\Admin\PaymentController::class, 'show'])->name('show');
+        Route::patch('/{order}/status', [App\Http\Controllers\Admin\PaymentController::class, 'updateStatus'])->name('update-status');
+        Route::post('/{order}/approve', [App\Http\Controllers\Admin\PaymentController::class, 'approve'])->name('approve');
+        Route::post('/{order}/refund', [App\Http\Controllers\Admin\PaymentController::class, 'refund'])->name('refund');
+        Route::get('/sellers/payments', [App\Http\Controllers\Admin\PaymentController::class, 'sellerPayments'])->name('sellers');
+    });
+
     // Trendyol Yönetimi
     Route::prefix('trendyol')->name('trendyol.')->group(function () {
         Route::get('/', [App\Http\Controllers\Admin\TrendyolController::class, 'index'])->name('index');

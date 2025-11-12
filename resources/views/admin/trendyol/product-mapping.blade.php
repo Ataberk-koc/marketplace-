@@ -111,6 +111,47 @@
                             </div>
                         </div>
 
+                        <!-- 5. Fiyat Bilgileri (Opsiyonel) -->
+                        <div class="mt-4">
+                            <hr>
+                            <h6 class="fw-bold mb-3">5. Trendyol Fiyatları (Opsiyonel)</h6>
+                            <div class="alert alert-warning">
+                                <small>
+                                    <i class="fas fa-info-circle"></i> 
+                                    <strong>Not:</strong> Boş bırakırsanız ürününüzün kendi fiyatları kullanılır.
+                                </small>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Liste Fiyatı (₺)</label>
+                                        <input type="number" 
+                                               name="custom_price" 
+                                               class="form-control" 
+                                               step="0.01" 
+                                               placeholder="Ör: 299.99">
+                                        <small class="text-muted">
+                                            Varsayılan: <strong id="defaultPrice">-</strong>
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">İndirimli Fiyat (₺)</label>
+                                        <input type="number" 
+                                               name="custom_sale_price" 
+                                               class="form-control" 
+                                               step="0.01" 
+                                               placeholder="Ör: 249.99">
+                                        <small class="text-muted">
+                                            Varsayılan: <strong id="defaultSalePrice">-</strong>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <button type="submit" class="btn btn-primary w-100 mt-3">
                             <i class="bi bi-check-circle"></i> Eşleştirmeyi Kaydet
                         </button>
@@ -365,7 +406,13 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 currentProduct = data;
-                console.log('📦 Ürün:', currentProduct);
+                console.log('📦 Ürün Bilgisi:', currentProduct);
+                
+                // Fiyat bilgilerini göster
+                document.getElementById('defaultPrice').textContent = 
+                    currentProduct.price ? currentProduct.price.toFixed(2) + ' ₺' : '-';
+                document.getElementById('defaultSalePrice').textContent = 
+                    currentProduct.discount_price ? currentProduct.discount_price.toFixed(2) + ' ₺' : '-';
                 
                 // Ürünün kategorisine göre Trendyol kategorilerini filtrele
                 filterCategoriesByProduct(currentProduct);
@@ -378,6 +425,8 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 console.error('Ürün bilgileri alınamadı:', error);
                 resetCategories();
+                document.getElementById('defaultPrice').textContent = '-';
+                document.getElementById('defaultSalePrice').textContent = '-';
             });
     });
 
