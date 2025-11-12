@@ -474,6 +474,143 @@ class TrendyolService
             ];
         }
         
+        // Aksesuar kategorileri için (103, 203 = Kadın/Erkek Aksesuar)
+        if (in_array($categoryId, [103, 203])) {
+            return [
+                'success' => true,
+                'data' => [
+                    'categoryAttributes' => [
+                        [
+                            'attribute' => ['id' => 5, 'name' => 'Renk'],
+                            'attributeValues' => [
+                                ['id' => 201, 'name' => 'Beyaz'],
+                                ['id' => 202, 'name' => 'Siyah'],
+                                ['id' => 203, 'name' => 'Kırmızı'],
+                                ['id' => 204, 'name' => 'Mavi'],
+                                ['id' => 205, 'name' => 'Yeşil'],
+                                ['id' => 209, 'name' => 'Pembe'],
+                                ['id' => 210, 'name' => 'Gri'],
+                                ['id' => 213, 'name' => 'Altın'],
+                                ['id' => 214, 'name' => 'Gümüş'],
+                            ],
+                            'required' => true,
+                            'varianter' => true,
+                        ],
+                        [
+                            'attribute' => ['id' => 6, 'name' => 'Materyal'],
+                            'attributeValues' => [
+                                ['id' => 601, 'name' => 'Metal'],
+                                ['id' => 602, 'name' => 'Plastik'],
+                                ['id' => 603, 'name' => 'Deri'],
+                                ['id' => 604, 'name' => 'Kumaş'],
+                                ['id' => 605, 'name' => 'Ahşap'],
+                                ['id' => 606, 'name' => 'Cam'],
+                                ['id' => 607, 'name' => 'Taş'],
+                            ],
+                            'required' => false,
+                            'varianter' => false,
+                        ],
+                        [
+                            'attribute' => ['id' => 7, 'name' => 'Ebat'],
+                            'attributeValues' => [
+                                ['id' => 701, 'name' => 'Tek Ebat'],
+                                ['id' => 702, 'name' => 'Küçük'],
+                                ['id' => 703, 'name' => 'Orta'],
+                                ['id' => 704, 'name' => 'Büyük'],
+                            ],
+                            'required' => false,
+                            'varianter' => true,
+                        ],
+                    ]
+                ]
+            ];
+        }
+        
+        // Çanta kategorileri için (104, 204)
+        if (in_array($categoryId, [104, 204])) {
+            return [
+                'success' => true,
+                'data' => [
+                    'categoryAttributes' => [
+                        [
+                            'attribute' => ['id' => 2, 'name' => 'Renk'],
+                            'attributeValues' => [
+                                ['id' => 201, 'name' => 'Beyaz'],
+                                ['id' => 202, 'name' => 'Siyah'],
+                                ['id' => 203, 'name' => 'Kırmızı'],
+                                ['id' => 204, 'name' => 'Mavi'],
+                                ['id' => 211, 'name' => 'Kahverengi'],
+                                ['id' => 210, 'name' => 'Gri'],
+                            ],
+                            'required' => true,
+                            'varianter' => true,
+                        ],
+                        [
+                            'attribute' => ['id' => 8, 'name' => 'Malzeme'],
+                            'attributeValues' => [
+                                ['id' => 801, 'name' => 'Deri'],
+                                ['id' => 802, 'name' => 'Suni Deri'],
+                                ['id' => 803, 'name' => 'Kumaş'],
+                                ['id' => 804, 'name' => 'Süet'],
+                                ['id' => 805, 'name' => 'Kanvas'],
+                            ],
+                            'required' => false,
+                            'varianter' => false,
+                        ],
+                    ]
+                ]
+            ];
+        }
+        
+        // Ev & Yaşam kategorileri için (4 ve alt kategorileri)
+        if ($categoryId == 4 || ($categoryId >= 400 && $categoryId < 500)) {
+            return [
+                'success' => true,
+                'data' => [
+                    'categoryAttributes' => [
+                        [
+                            'attribute' => ['id' => 2, 'name' => 'Renk'],
+                            'attributeValues' => [
+                                ['id' => 201, 'name' => 'Beyaz'],
+                                ['id' => 202, 'name' => 'Siyah'],
+                                ['id' => 203, 'name' => 'Kırmızı'],
+                                ['id' => 204, 'name' => 'Mavi'],
+                                ['id' => 205, 'name' => 'Yeşil'],
+                                ['id' => 210, 'name' => 'Gri'],
+                            ],
+                            'required' => false,
+                            'varianter' => true,
+                        ],
+                        [
+                            'attribute' => ['id' => 9, 'name' => 'Ölçü'],
+                            'attributeValues' => [
+                                ['id' => 901, 'name' => 'Tek Ölçü'],
+                                ['id' => 902, 'name' => '50x70 cm'],
+                                ['id' => 903, 'name' => '100x150 cm'],
+                                ['id' => 904, 'name' => '150x200 cm'],
+                                ['id' => 905, 'name' => '200x300 cm'],
+                            ],
+                            'required' => false,
+                            'varianter' => true,
+                        ],
+                        [
+                            'attribute' => ['id' => 10, 'name' => 'Malzeme'],
+                            'attributeValues' => [
+                                ['id' => 1001, 'name' => 'Pamuk'],
+                                ['id' => 1002, 'name' => 'Polyester'],
+                                ['id' => 1003, 'name' => 'Ahşap'],
+                                ['id' => 1004, 'name' => 'Metal'],
+                                ['id' => 1005, 'name' => 'Plastik'],
+                                ['id' => 1006, 'name' => 'Cam'],
+                            ],
+                            'required' => false,
+                            'varianter' => false,
+                        ],
+                    ]
+                ]
+            ];
+        }
+        
         // Diğer kategoriler için genel attributes
         return [
             'success' => true,

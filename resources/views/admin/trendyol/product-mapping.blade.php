@@ -93,6 +93,17 @@
                         <div id="attributesSection" style="display:none;">
                             <hr>
                             <h6 class="fw-bold mb-3">4. Özellik Eşleştirmeleri</h6>
+                            <div class="alert alert-info">
+                                <small>
+                                    <i class="fas fa-lightbulb"></i> 
+                                    <strong>Nasıl Çalışır:</strong>
+                                    <ul class="mb-0 mt-2">
+                                        <li>Ürününüzde olan özellikleri Trendyol karşılıkları ile eşleştirin</li>
+                                        <li><strong>Varyant özellikler</strong> (Beden, Renk) farklı kombinasyonlar oluşturur</li>
+                                        <li><strong>Genel özellikler</strong> (Kumaş, Desen) tüm varyantlarda aynıdır</li>
+                                    </ul>
+                                </small>
+                            </div>
                             <div id="attributeInputs">
                                 <!-- AJAX ile dinamik yüklenecek -->
                             </div>
@@ -167,9 +178,13 @@
                                         <td>{{ $mapping->trendyol_brand_name }}</td>
                                         <td>
                                             @if($mapping->attribute_mappings && count($mapping->attribute_mappings) > 0)
-                                                <span class="badge bg-info">{{ count($mapping->attribute_mappings) }} özellik</span>
+                                                @foreach($mapping->attribute_mappings as $attrName => $attrValue)
+                                                    <span class="badge bg-secondary me-1 mb-1">
+                                                        {{ $attrName }}: {{ $attrValue }}
+                                                    </span>
+                                                @endforeach
                                             @else
-                                                <span class="text-muted">-</span>
+                                                <span class="text-muted">Özellik eşleştirmesi yok</span>
                                             @endif
                                         </td>
                                         <td>
@@ -203,9 +218,33 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const productSelect = document.getElementById('productSelect');
     const categorySelect = document.getElementById('categorySelect');
     const attributesSection = document.getElementById('attributesSection');
     const attributeInputs = document.getElementById('attributeInputs');
+
+    let currentProduct = null;
+
+    // Ürün seçildiğinde ürün bilgilerini al
+    productSelect.addEventListener('change', function() {
+        const productId = this.value;
+        if (!productId) {
+            currentProduct = null;
+            return;
+        }
+
+        // Ürün detaylarını AJAX ile al
+        fetch(`/api/products/${productId}`)
+            .then(response => response.json())
+            .then(data => {
+                currentProduct = data;
+                // Kategori değiştiyse attributes'ı yeniden yükle
+                if (categorySelect.value) {
+                    loadCategoryAttributes(categorySelect.value);
+                }
+            })
+            .catch(error => console.error('Ürün bilgileri alınamadı:', error));
+    });
 
     // Kategori değiştiğinde attributes yükle
     categorySelect.addEventListener('change', function() {
@@ -216,26 +255,82 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        loadCategoryAttributes(categoryId);
+    });
+
+    function loadCategoryAttributes(categoryId) {
+        console.log('🔍 Kategori ID:', categoryId); // DEBUG
+        
         // AJAX ile kategori attributes getir
         fetch(`/admin/trendyol/category-attributes/${categoryId}`)
             .then(response => response.json())
             .then(data => {
+                console.log('📦 Gelen Attributes:', data); // DEBUG
+                
                 if (data.success && data.attributes.length > 0) {
                     attributeInputs.innerHTML = '';
                     
                     data.attributes.forEach(attr => {
                         const attrDiv = document.createElement('div');
-                        attrDiv.className = 'mb-3';
-                        attrDiv.innerHTML = `
-                            <label class="form-label">${attr.attribute.name} ${attr.required ? '<span class="text-danger">*</span>' : ''}</label>
+                        attrDiv.className = 'mb-4 p-3 border rounded bg-light';
+                        
+                        // Attribute başlığı
+                        let headerHTML = `
+                            <h6 class="fw-bold mb-3">
+                                ${attr.attribute.name} 
+                                ${attr.required ? '<span class="text-danger">*</span>' : ''}
+                                ${attr.varianter ? '<span class="badge bg-info ms-2">Varyant</span>' : ''}
+                            </h6>
+                        `;
+
+                        // Ürünün mevcut değerlerini göster
+                        let productValuesHTML = '';
+                        if (currentProduct && attr.attribute.name === 'Beden') {
+                            // Beden bilgilerini product_size'dan al
+                            productValuesHTML = `
+                                <div class="mb-3">
+                                    <small class="text-muted d-block mb-2">
+                                        <i class="fas fa-info-circle"></i> Ürününüzdeki bedenler:
+                                    </small>
+                                    <div class="alert alert-info py-2">
+                                        <small><strong>Not:</strong> Ürününüzün bedenlerini Trendyol bedenleriyle manuel eşleştirin.</small>
+                                    </div>
+                                </div>
+                            `;
+                        } else if (currentProduct && currentProduct.attributes) {
+                            // Diğer özellikler için attributes JSON'dan al
+                            const attrKey = attr.attribute.name.toLowerCase();
+                            if (currentProduct.attributes[attrKey]) {
+                                const values = Array.isArray(currentProduct.attributes[attrKey]) 
+                                    ? currentProduct.attributes[attrKey] 
+                                    : [currentProduct.attributes[attrKey]];
+                                
+                                productValuesHTML = `
+                                    <div class="mb-3">
+                                        <small class="text-muted d-block mb-2">
+                                            <i class="fas fa-box"></i> Ürününüzde: 
+                                            <strong>${values.join(', ')}</strong>
+                                        </small>
+                                    </div>
+                                `;
+                            }
+                        }
+
+                        // Trendyol değerlerini dropdown olarak göster
+                        let selectHTML = `
+                            <label class="form-label">Trendyol ${attr.attribute.name} Değeri</label>
                             <select name="attribute_mappings[${attr.attribute.name}]" class="form-select" ${attr.required ? 'required' : ''}>
                                 <option value="">Seçiniz...</option>
                                 ${attr.attributeValues.map(val => `
                                     <option value="${val.id}">${val.name}</option>
                                 `).join('')}
                             </select>
-                            ${attr.varianter ? '<small class="text-muted">Varyant özelliği</small>' : ''}
+                            <small class="text-muted">
+                                ${attr.varianter ? '⚠️ Bu özellik varyant oluşturur' : 'ℹ️ Genel özellik'}
+                            </small>
                         `;
+
+                        attrDiv.innerHTML = headerHTML + productValuesHTML + selectHTML;
                         attributeInputs.appendChild(attrDiv);
                     });
                     
@@ -248,7 +343,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Özellikler yüklenirken hata:', error);
                 alert('Özellikler yüklenirken hata oluştu!');
             });
-    });
+    }
 });
 </script>
 @endsection

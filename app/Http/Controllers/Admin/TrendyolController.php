@@ -384,7 +384,12 @@ class TrendyolController extends Controller
      */
     public function getCategoryAttributes($categoryId)
     {
-        $result = $this->trendyolService->getCategoryAttributes($categoryId);
+        // Laravel ID'den Trendyol API ID'sini al
+        $trendyolCategory = TrendyolCategory::findOrFail($categoryId);
+        $trendyolCategoryApiId = $trendyolCategory->trendyol_category_id;
+        
+        // Trendyol API ID ile attributes çek
+        $result = $this->trendyolService->getCategoryAttributes($trendyolCategoryApiId);
         
         if (!$result['success']) {
             return response()->json(['success' => false, 'message' => $result['message']], 400);
