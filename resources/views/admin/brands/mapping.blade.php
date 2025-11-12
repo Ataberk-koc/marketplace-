@@ -78,7 +78,7 @@
                         <dd class="col-sm-8">{{ $brand->trendyolMapping->trendyol_brand_id }}</dd>
                         
                         <dt class="col-sm-4">Marka Adı:</dt>
-                        <dd class="col-sm-8"><strong>{{ $brand->trendyolMapping->trendyolBrand->name ?? 'N/A' }}</strong></dd>
+                        <dd class="col-sm-8"><strong>{{ $brand->trendyolMapping->trendyol_brand_name ?? 'N/A' }}</strong></dd>
                         
                         <dt class="col-sm-4">Eşleştirme Tarihi:</dt>
                         <dd class="col-sm-8 mb-0">{{ $brand->trendyolMapping->created_at->format('d.m.Y H:i') }}</dd>
@@ -121,12 +121,18 @@
                     <select name="trendyol_brand_id" id="trendyol_brand_id" class="form-select" required>
                         <option value="">-- Trendyol markası seçin --</option>
                         @foreach($trendyolBrands as $trendyolBrand)
-                            <option value="{{ $trendyolBrand->id }}" 
-                                    {{ old('trendyol_brand_id', $brand->trendyolMapping->trendyol_brand_id ?? '') == $trendyolBrand->id ? 'selected' : '' }}>
-                                {{ $trendyolBrand->name }} (ID: {{ $trendyolBrand->id }})
+                            @php
+                                $brandId = is_array($trendyolBrand) ? $trendyolBrand['id'] : $trendyolBrand->id;
+                                $brandName = is_array($trendyolBrand) ? $trendyolBrand['name'] : $trendyolBrand->name;
+                            @endphp
+                            <option value="{{ $brandId }}" 
+                                    data-brand-name="{{ $brandName }}"
+                                    {{ old('trendyol_brand_id', $brand->trendyolMapping->trendyol_brand_id ?? '') == $brandId ? 'selected' : '' }}>
+                                {{ $brandName }} (ID: {{ $brandId }})
                             </option>
                         @endforeach
                     </select>
+                    <input type="hidden" name="trendyol_brand_name" id="trendyol_brand_name">
                 </div>
             </div>
 
@@ -144,7 +150,18 @@
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('search');
     const selectElement = document.getElementById('trendyol_brand_id');
+    const brandNameInput = document.getElementById('trendyol_brand_name');
     const options = Array.from(selectElement.options);
+
+    // Marka seçildiğinde otomatik olarak brand name'i doldur
+    selectElement.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption.value) {
+            brandNameInput.value = selectedOption.getAttribute('data-brand-name') || '';
+        } else {
+            brandNameInput.value = '';
+        }
+    });
 
     searchInput.addEventListener('input', function() {
         const searchTerm = this.value.toLowerCase();

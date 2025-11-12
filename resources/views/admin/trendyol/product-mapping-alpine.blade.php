@@ -329,25 +329,43 @@
                                     <td>{{ $mapping->trendyol_brand_name ?? '-' }}</td>
                                     <td>{{ $mapping->trendyol_category_name ?? '-' }}</td>
                                     <td>
-                                        @if($mapping->status === 'active')
-                                            <span class="badge bg-success">Aktif</span>
+                                        @if($mapping->status === 'sent')
+                                            <span class="badge bg-success">Gönderildi</span>
                                         @elseif($mapping->status === 'pending')
                                             <span class="badge bg-warning">Bekliyor</span>
+                                        @elseif($mapping->status === 'error')
+                                            <span class="badge bg-danger">Hata</span>
                                         @else
-                                            <span class="badge bg-secondary">Pasif</span>
+                                            <span class="badge bg-secondary">{{ ucfirst($mapping->status) }}</span>
                                         @endif
                                     </td>
                                     <td>
-                                        <form action="{{ route('admin.trendyol.delete-product-mapping', $mapping) }}" 
-                                              method="POST" 
-                                              class="d-inline"
-                                              onsubmit="return confirm('Bu eşleştirmeyi silmek istediğinize emin misiniz?')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-sm btn-danger">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </form>
+                                        <div class="btn-group" role="group">
+                                            <!-- Gönder Butonu (Sadece pending durumda) -->
+                                            @if($mapping->status === 'pending')
+                                                <form action="{{ route('admin.trendyol.send-single-product', $mapping) }}" 
+                                                      method="POST" 
+                                                      class="d-inline"
+                                                      onsubmit="return confirm('Bu ürünü Trendyol\'a göndermek istediğinize emin misiniz?')">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-success" title="Trendyol'a Gönder">
+                                                        <i class="bi bi-send"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
+                                            
+                                            <!-- Sil Butonu -->
+                                            <form action="{{ route('admin.trendyol.delete-product-mapping', $mapping) }}" 
+                                                  method="POST" 
+                                                  class="d-inline"
+                                                  onsubmit="return confirm('Bu eşleştirmeyi silmek istediğinize emin misiniz?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-sm btn-danger" title="Sil">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                                 @endforeach

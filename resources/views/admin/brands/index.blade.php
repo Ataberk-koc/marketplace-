@@ -28,10 +28,10 @@
                     <td>{{ $brand->name }}</td>
                     <td>{{ $brand->slug }}</td>
                     <td>
-                        @if($brand->mapping)
+                        @if($brand->trendyolMapping)
                             <span class="badge bg-success">
                                 <i class="bi bi-check-circle"></i> 
-                                {{ $brand->mapping->trendyolBrand->name }}
+                                {{ $brand->trendyolMapping->trendyol_brand_name ?? 'Eşleştirilmiş' }}
                             </span>
                         @else
                             <span class="badge bg-secondary">

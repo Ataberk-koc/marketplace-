@@ -127,35 +127,44 @@ class TrendyolController extends Controller
     /**
      * Tek ürün gönderme
      */
-    public function sendSingleProduct(Product $product)
+    /**
+     * Tek bir ürünü Trendyol'a gönder
+     */
+    public function sendSingleProduct(ProductTrendyolMapping $mapping)
     {
-        $mapping = ProductTrendyolMapping::where('product_id', $product->id)
-            ->where('status', 'pending')
-            ->first();
-
-        if (!$mapping) {
-            return back()->with('error', 'Ürün eşleştirilmemiş veya zaten gönderilmiş!');
+        if ($mapping->status !== 'pending') {
+            return back()->with('error', 'Bu ürün zaten gönderilmiş veya işlem hatası var!');
         }
 
-        $productData = $this->formatProductForTrendyol($mapping);
-        $result = $this->trendyolService->createProduct($productData);
+        try {
+            $productData = $this->formatProductForTrendyol($mapping);
+            $result = $this->trendyolService->createProduct($productData);
 
-        if ($result['success']) {
+            if ($result['success']) {
+                $mapping->update([
+                    'status' => 'sent',
+                    'sent_at' => now(),
+                    'sent_by' => auth()->id(),
+                    'trendyol_response' => $result['data'] ?? null
+                ]);
+                return back()->with('success', 'Ürün başarıyla Trendyol\'a gönderildi!');
+            }
+
             $mapping->update([
-                'status' => 'sent',
-                'sent_at' => now(),
-                'sent_by' => auth()->id(),
-                'trendyol_response' => $result['data'] ?? null
+                'status' => 'error',
+                'error_message' => $result['message'] ?? 'Bilinmeyen hata'
             ]);
-            return back()->with('success', 'Ürün başarıyla Trendyol\'a gönderildi!');
+
+            return back()->with('error', 'Ürün gönderilemedi: ' . ($result['message'] ?? 'Bilinmeyen hata'));
+            
+        } catch (\Exception $e) {
+            $mapping->update([
+                'status' => 'error',
+                'error_message' => $e->getMessage()
+            ]);
+            
+            return back()->with('error', 'Gönderim hatası: ' . $e->getMessage());
         }
-
-        $mapping->update([
-            'status' => 'error',
-            'error_message' => $result['message'] ?? 'Bilinmeyen hata'
-        ]);
-
-        return back()->with('error', 'Ürün gönderilemedi: ' . ($result['message'] ?? 'Bilinmeyen hata'));
     }
 
     /**
