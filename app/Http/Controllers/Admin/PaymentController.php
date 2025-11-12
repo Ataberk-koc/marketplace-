@@ -42,9 +42,9 @@ class PaymentController extends Controller
 
         // İstatistikler
         $stats = [
-            'total_pending' => Order::where('payment_status', 'pending')->sum('total_amount'),
-            'total_paid' => Order::where('payment_status', 'paid')->sum('total_amount'),
-            'total_refunded' => Order::where('payment_status', 'refunded')->sum('total_amount'),
+            'total_pending' => Order::where('payment_status', 'pending')->sum('total'),
+            'total_paid' => Order::where('payment_status', 'paid')->sum('total'),
+            'total_refunded' => Order::where('payment_status', 'refunded')->sum('total'),
             'pending_count' => Order::where('payment_status', 'pending')->count(),
         ];
 

@@ -90,7 +90,7 @@
                             <td>{{ $order->created_at->format('d.m.Y H:i') }}</td>
                             <td>{{ $order->user->name }}</td>
                             <td>{{ $order->items->sum('quantity') }} adet</td>
-                            <td class="text-end"><strong>{{ number_format($order->total_amount, 2) }} ₺</strong></td>
+                            <td class="text-end"><strong>{{ number_format($order->total, 2) }} ₺</strong></td>
                             <td>
                                 <span class="badge bg-success">Tamamlandı</span>
                             </td>

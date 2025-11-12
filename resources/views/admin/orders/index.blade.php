@@ -77,7 +77,7 @@
                         <td>
                             <span class="badge bg-info">{{ $order->items_count }} ürün</span>
                         </td>
-                        <td><strong>{{ number_format($order->total_amount, 2) }} ₺</strong></td>
+                        <td><strong>{{ number_format($order->total, 2) }} ₺</strong></td>
                         <td>
                             @if($order->status == 'pending')
                                 <span class="badge bg-warning text-dark">Beklemede</span>

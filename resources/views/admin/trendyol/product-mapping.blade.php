@@ -233,6 +233,7 @@
                                                 <th>Ürün</th>
                                                 <th>Trendyol Kategori</th>
                                                 <th>Trendyol Marka</th>
+                                                <th>Fiyat</th>
                                                 <th>Özellikler</th>
                                                 <th>İşlem</th>
                                             </tr>
@@ -250,6 +251,22 @@
                                                 </td>
                                                 <td>{{ $mapping->trendyol_category_name }}</td>
                                                 <td>{{ $mapping->trendyol_brand_name }}</td>
+                                                <td>
+                                                    @php
+                                                        $listPrice = $mapping->custom_price ?? $mapping->product->price;
+                                                        $salePrice = $mapping->custom_sale_price ?? $mapping->product->discount_price ?? $mapping->product->price;
+                                                    @endphp
+                                                    <div>
+                                                        <strong class="text-success">{{ number_format($salePrice, 2) }} ₺</strong>
+                                                        @if($listPrice != $salePrice)
+                                                            <br>
+                                                            <small class="text-muted text-decoration-line-through">{{ number_format($listPrice, 2) }} ₺</small>
+                                                        @endif
+                                                    </div>
+                                                    @if($mapping->custom_price || $mapping->custom_sale_price)
+                                                        <small class="badge bg-info">Özel</small>
+                                                    @endif
+                                                </td>
                                                 <td>
                                                     @if($mapping->attribute_mappings && count($mapping->attribute_mappings) > 0)
                                                         @foreach($mapping->attribute_mappings as $attrName => $attrValue)
@@ -311,6 +328,7 @@
                                             <tr>
                                                 <th>Ürün</th>
                                                 <th>Kategori & Marka</th>
+                                                <th>Fiyat</th>
                                                 <th>Durum</th>
                                                 <th>Gönderim Tarihi</th>
                                                 <th>Batch ID</th>
@@ -329,6 +347,22 @@
                                                         <strong>Kat:</strong> {{ $mapping->trendyol_category_name }}<br>
                                                         <strong>Marka:</strong> {{ $mapping->trendyol_brand_name }}
                                                     </small>
+                                                </td>
+                                                <td>
+                                                    @php
+                                                        $listPrice = $mapping->custom_price ?? $mapping->product->price;
+                                                        $salePrice = $mapping->custom_sale_price ?? $mapping->product->discount_price ?? $mapping->product->price;
+                                                    @endphp
+                                                    <div>
+                                                        <strong class="text-success">{{ number_format($salePrice, 2) }} ₺</strong>
+                                                        @if($listPrice != $salePrice)
+                                                            <br>
+                                                            <small class="text-muted text-decoration-line-through">{{ number_format($listPrice, 2) }} ₺</small>
+                                                        @endif
+                                                    </div>
+                                                    @if($mapping->custom_price || $mapping->custom_sale_price)
+                                                        <small class="badge bg-info">Özel</small>
+                                                    @endif
                                                 </td>
                                                 <td>
                                                     @if($mapping->status === 'sent')

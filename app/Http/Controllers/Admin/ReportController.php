@@ -19,7 +19,7 @@ class ReportController extends Controller
     {
         // Genel istatistikler
         $stats = [
-            'total_sales' => Order::where('status', 'completed')->sum('total_amount'),
+            'total_sales' => Order::where('status', 'completed')->sum('total'),
             'total_orders' => Order::count(),
             'total_products' => Product::count(),
             'total_users' => User::where('role', 'user')->count(),
@@ -31,7 +31,7 @@ class ReportController extends Controller
             ->where('created_at', '>=', now()->subDays(30))
             ->select(
                 DB::raw('DATE(created_at) as date'),
-                DB::raw('SUM(total_amount) as total'),
+                DB::raw('SUM(total) as total'),
                 DB::raw('COUNT(*) as count')
             )
             ->groupBy('date')
@@ -86,7 +86,7 @@ class ReportController extends Controller
         $orders = $query->orderBy('created_at', 'desc')->paginate(20);
 
         // Toplam satış
-        $totalSales = $query->sum('total_amount');
+        $totalSales = $query->sum('total');
         $totalOrders = $query->count();
 
         // Satıcılar listesi

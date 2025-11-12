@@ -103,7 +103,7 @@
                             <td><strong>#{{ $order->id }}</strong></td>
                             <td>{{ $order->user->name }}</td>
                             <td>{{ $order->created_at->format('d.m.Y H:i') }}</td>
-                            <td class="text-end"><strong>{{ number_format($order->total_amount, 2) }} ₺</strong></td>
+                            <td class="text-end"><strong>{{ number_format($order->total, 2) }} ₺</strong></td>
                             <td>
                                 @if($order->payment_status == 'pending')
                                 <span class="badge bg-warning">Bekliyor</span>

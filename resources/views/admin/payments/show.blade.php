@@ -66,7 +66,7 @@
                             <tfoot>
                                 <tr>
                                     <th colspan="4" class="text-end">Toplam:</th>
-                                    <th class="text-end">{{ number_format($order->total_amount, 2) }} ₺</th>
+                                    <th class="text-end">{{ number_format($order->total, 2) }} ₺</th>
                                 </tr>
                             </tfoot>
                         </table>

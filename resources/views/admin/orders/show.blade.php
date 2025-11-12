@@ -107,7 +107,7 @@
                             </tr>
                             <tr class="table-primary">
                                 <th colspan="5" class="text-end">TOPLAM:</th>
-                                <th>{{ number_format($order->total_amount, 2) }} ₺</th>
+                                <th>{{ number_format($order->total, 2) }} ₺</th>
                             </tr>
                         </tfoot>
                     </table>

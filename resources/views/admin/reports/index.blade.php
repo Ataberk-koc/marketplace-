@@ -64,15 +64,76 @@
         </div>
     </div>
 
-    <!-- Satış Grafiği -->
+    <!-- Satış Tablosu -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">Son 30 Gün Satış Grafiği</h5>
+                    <h5 class="mb-0">Son 30 Gün Satış Raporu</h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="salesChart" height="80"></canvas>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th class="text-end">Sipariş Sayısı</th>
+                                    <th class="text-end">Toplam Satış</th>
+                                    <th class="text-end">Ortalama Sipariş</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($salesChart as $day)
+                                <tr>
+                                    <td>
+                                        <strong>{{ \Carbon\Carbon::parse($day['date'])->locale('tr')->isoFormat('D MMMM YYYY') }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ \Carbon\Carbon::parse($day['date'])->locale('tr')->isoFormat('dddd') }}</small>
+                                    </td>
+                                    <td class="text-end">
+                                        <span class="badge bg-primary">{{ $day['count'] }}</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <strong class="text-success">{{ number_format($day['total'], 2, ',', '.') }} ₺</strong>
+                                    </td>
+                                    <td class="text-end">
+                                        @if($day['count'] > 0)
+                                            <span class="text-info">{{ number_format($day['total'] / $day['count'], 2, ',', '.') }} ₺</span>
+                                        @else
+                                            <span class="text-muted">-</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">Veri bulunamadı</td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                            <tfoot class="table-secondary">
+                                <tr>
+                                    <th>TOPLAM</th>
+                                    <th class="text-end">
+                                        <span class="badge bg-dark">{{ collect($salesChart)->sum('count') }}</span>
+                                    </th>
+                                    <th class="text-end">
+                                        <strong class="text-success">{{ number_format(collect($salesChart)->sum('total'), 2, ',', '.') }} ₺</strong>
+                                    </th>
+                                    <th class="text-end">
+                                        @php
+                                            $totalOrders = collect($salesChart)->sum('count');
+                                            $totalSales = collect($salesChart)->sum('total');
+                                        @endphp
+                                        @if($totalOrders > 0)
+                                            <span class="text-info">{{ number_format($totalSales / $totalOrders, 2, ',', '.') }} ₺</span>
+                                        @else
+                                            <span class="text-muted">-</span>
+                                        @endif
+                                    </th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -185,54 +246,5 @@
     </div>
 </div>
 
-@push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script>
-const salesData = @json($salesChart);
-const ctx = document.getElementById('salesChart').getContext('2d');
 
-new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: salesData.map(d => d.date),
-        datasets: [{
-            label: 'Satış (₺)',
-            data: salesData.map(d => d.total),
-            borderColor: 'rgb(75, 192, 192)',
-            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-            tension: 0.1
-        }, {
-            label: 'Sipariş Sayısı',
-            data: salesData.map(d => d.count),
-            borderColor: 'rgb(255, 99, 132)',
-            backgroundColor: 'rgba(255, 99, 132, 0.2)',
-            tension: 0.1,
-            yAxisID: 'y1'
-        }]
-    },
-    options: {
-        responsive: true,
-        interaction: {
-            mode: 'index',
-            intersect: false,
-        },
-        scales: {
-            y: {
-                type: 'linear',
-                display: true,
-                position: 'left',
-            },
-            y1: {
-                type: 'linear',
-                display: true,
-                position: 'right',
-                grid: {
-                    drawOnChartArea: false,
-                }
-            }
-        }
-    }
-});
-</script>
-@endpush
 @endsection

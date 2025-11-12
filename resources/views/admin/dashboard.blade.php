@@ -86,7 +86,7 @@
                     <tr>
                         <td>#{{ $order->id }}</td>
                         <td>{{ $order->user->name }}</td>
-                        <td>{{ number_format($order->total_amount, 2) }} ₺</td>
+                        <td>{{ number_format($order->total, 2) }} ₺</td>
                         <td>
                             @if($order->status == 'pending')
                                 <span class="badge bg-warning">Beklemede</span>
