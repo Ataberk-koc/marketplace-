@@ -5,7 +5,17 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-people"></i> Kullanıcılar</h2>
+    <a href="{{ route('admin.users.create') }}" class="btn btn-primary">
+        <i class="bi bi-person-plus"></i> Yeni Kullanıcı
+    </a>
 </div>
+
+@if(session('success'))
+    <div class="alert alert-success alert-dismissible fade show">
+        <i class="bi bi-check-circle"></i> {{ session('success') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+@endif
 
 <div class="card">
     <div class="card-body">

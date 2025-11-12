@@ -66,4 +66,81 @@ class UserController extends Controller
 
         return back()->with('success', 'Kullanıcı silindi!');
     }
+
+    /**
+     * Yeni kullanıcı oluşturma formu
+     */
+    public function create()
+    {
+        return view('admin.users.create');
+    }
+
+    /**
+     * Yeni kullanıcı kaydeder
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users',
+            'password' => 'required|min:8|confirmed',
+            'phone' => 'nullable|string|max:20',
+            'role' => 'required|in:admin,seller,user',
+            'is_active' => 'boolean',
+        ]);
+
+        User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => bcrypt($request->password),
+            'phone' => $request->phone,
+            'role' => $request->role,
+            'is_active' => $request->boolean('is_active', true),
+            'email_verified_at' => now(), // Admin tarafından oluşturulan kullanıcılar otomatik doğrulanmış sayılır
+        ]);
+
+        return redirect()->route('admin.users.index')
+            ->with('success', 'Kullanıcı oluşturuldu!');
+    }
+
+    /**
+     * Kullanıcı düzenleme formu
+     */
+    public function edit(User $user)
+    {
+        return view('admin.users.edit', compact('user'));
+    }
+
+    /**
+     * Kullanıcıyı günceller
+     */
+    public function update(Request $request, User $user)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $user->id,
+            'password' => 'nullable|min:8|confirmed',
+            'phone' => 'nullable|string|max:20',
+            'role' => 'required|in:admin,seller,user',
+            'is_active' => 'boolean',
+        ]);
+
+        $data = [
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'role' => $request->role,
+            'is_active' => $request->boolean('is_active'),
+        ];
+
+        // Eğer şifre girilmişse güncelle
+        if ($request->filled('password')) {
+            $data['password'] = bcrypt($request->password);
+        }
+
+        $user->update($data);
+
+        return redirect()->route('admin.users.index')
+            ->with('success', 'Kullanıcı güncellendi!');
+    }
 }

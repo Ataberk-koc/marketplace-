@@ -121,6 +121,45 @@ class TrendyolService
     }
 
     /**
+     * Beden/Özellik listesini çeker (Size attributes)
+     * Not: Trendyol'da bedenler kategori bazlı attribute olarak gelir
+     * Bu metot basitleştirilmiş bir örnektir
+     */
+    public function getSizeAttributes($categoryId = null)
+    {
+        try {
+            // Eğer kategori ID verilmişse o kategorinin attribute'larını çek
+            if ($categoryId) {
+                return $this->getCategoryAttributes($categoryId);
+            }
+
+            // Genel size/beden listesi için mock data
+            // Gerçek uygulamada kategoriye göre çekilmeli
+            return [
+                'success' => true,
+                'data' => [
+                    'attributes' => [
+                        ['id' => 1, 'name' => 'S', 'attributeType' => 'size'],
+                        ['id' => 2, 'name' => 'M', 'attributeType' => 'size'],
+                        ['id' => 3, 'name' => 'L', 'attributeType' => 'size'],
+                        ['id' => 4, 'name' => 'XL', 'attributeType' => 'size'],
+                        ['id' => 5, 'name' => '36', 'attributeType' => 'shoeSize'],
+                        ['id' => 6, 'name' => '38', 'attributeType' => 'shoeSize'],
+                        ['id' => 7, 'name' => '40', 'attributeType' => 'shoeSize'],
+                        ['id' => 8, 'name' => '42', 'attributeType' => 'shoeSize'],
+                    ]
+                ]
+            ];
+        } catch (\Exception $e) {
+            Log::error('Trendyol getSizeAttributes exception', ['error' => $e->getMessage()]);
+            return [
+                'success' => false,
+                'message' => 'Bir hata oluştu: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
      * Trendyol'a ürün gönderir
      * POST /suppliers/{supplierId}/products
      */

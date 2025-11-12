@@ -62,19 +62,81 @@ class TrendyolController extends Controller
             abort(403);
         }
 
+        // ADIM 1: Marka Eşleştirme Kontrolü
+        if (!$product->brand || !$product->brand->trendyolMapping) {
+            return back()->with('error', 'Ürün gönderilemedi! Ürünün markası Trendyol markası ile eşleştirilmemiş. Lütfen admin ile iletişime geçin.');
+        }
+
+        // ADIM 2: Kategori Eşleştirme Kontrolü
+        if (!$product->category || !$product->category->trendyolMapping) {
+            return back()->with('error', 'Ürün gönderilemedi! Ürünün kategorisi Trendyol kategorisi ile eşleştirilmemiş. Lütfen admin ile iletişime geçin.');
+        }
+
+        // ADIM 3: Beden Eşleştirme Kontrolü
+        $unmappedSizes = [];
+        foreach ($product->sizes as $size) {
+            if (!$size->trendyolMapping) {
+                $unmappedSizes[] = $size->name;
+            }
+        }
+
+        if (!empty($unmappedSizes)) {
+            return back()->with('error', 'Ürün gönderilemedi! Şu bedenler Trendyol bedenleri ile eşleştirilmemiş: ' . implode(', ', $unmappedSizes) . '. Lütfen admin ile iletişime geçin.');
+        }
+
+        // ADIM 4: Stok Kontrolü
+        if ($product->stock_quantity < 1) {
+            return back()->with('error', 'Ürün gönderilemedi! Ürünün stoğu yok.');
+        }
+
+        // ADIM 5: Fiyat Kontrolü
+        if ($product->price <= 0) {
+            return back()->with('error', 'Ürün gönderilemedi! Ürünün fiyatı geçersiz.');
+        }
+
+        // ADIM 6: Görsel Kontrolü
+        $images = is_array($product->images) ? $product->images : json_decode($product->images, true);
+        if (empty($images)) {
+            return back()->with('error', 'Ürün gönderilemedi! Ürünün en az 1 görseli olmalıdır.');
+        }
+
         // Trendyol mapping oluştur veya getir
         $mapping = TrendyolProductMapping::firstOrCreate(
             ['product_id' => $product->id],
             ['status' => 'pending']
         );
 
-        // Ürün eşleştirmeleri tamamlanmış mı kontrol et
-        if (!$mapping->isReadyToSend()) {
-            return back()->with('error', 'Ürün Trendyol\'a gönderilebilmesi için önce marka, kategori ve beden eşleştirmelerinin tamamlanması gerekiyor!');
-        }
-
         // Ürünü Trendyol formatına dönüştür
-        $productData = $this->trendyolService->formatProductForTrendyol($product);
+        $productData = [
+            'barcode' => $product->sku ?? 'SKU' . $product->id,
+            'title' => $product->name,
+            'productMainId' => $product->id . time(), // Unique ID
+            'brandId' => $product->brand->trendyolMapping->trendyol_brand_id,
+            'categoryId' => $product->category->trendyolMapping->trendyol_category_id,
+            'quantity' => $product->stock_quantity,
+            'stockCode' => $product->sku ?? 'SKU' . $product->id,
+            'dimensionalWeight' => 1,
+            'description' => strip_tags($product->description ?? $product->name),
+            'currencyType' => 'TRY',
+            'listPrice' => $product->price,
+            'salePrice' => $product->final_price,
+            'vatRate' => 18,
+            'cargoCompanyId' => 10, // Trendyol kargo
+            'images' => array_map(function($img) {
+                return ['url' => $img];
+            }, array_slice($images, 0, 6)), // Max 6 görsel
+            'attributes' => [],
+        ];
+
+        // Beden özelliklerini ekle
+        foreach ($product->sizes as $size) {
+            if ($size->trendyolMapping) {
+                $productData['attributes'][] = [
+                    'attributeId' => $size->trendyolMapping->trendyol_size_id,
+                    'attributeValueId' => $size->trendyolMapping->trendyol_size_id,
+                ];
+            }
+        }
 
         // Trendyol'a gönder
         $result = $this->trendyolService->sendProduct($productData);
@@ -87,11 +149,11 @@ class TrendyolController extends Controller
                 'sent_at' => now(),
             ]);
 
-            return back()->with('success', 'Ürün Trendyol\'a başarıyla gönderildi!');
+            return back()->with('success', 'Ürün Trendyol\'a başarıyla gönderildi! İşlem ID: ' . ($result['data']['batchRequestId'] ?? 'N/A'));
         }
 
         $mapping->update([
-            'status' => 'rejected',
+            'status' => 'error',
             'trendyol_response' => json_encode($result['error'] ?? $result['message']),
         ]);
 

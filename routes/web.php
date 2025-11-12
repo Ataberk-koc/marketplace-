@@ -68,9 +68,8 @@ Route::middleware(['auth', 'verified.active', 'admin'])->prefix('admin')->name('
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
     // Kullanıcı yönetimi
-    Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
+    Route::resource('users', AdminUserController::class)->except(['show']);
     Route::post('/users/{user}/toggle-active', [AdminUserController::class, 'toggleActive'])->name('users.toggle-active');
-    Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
 
     // Ürün yönetimi
     Route::get('/products', [AdminProductController::class, 'index'])->name('products.index');
@@ -95,6 +94,14 @@ Route::middleware(['auth', 'verified.active', 'admin'])->prefix('admin')->name('
     Route::post('/categories/sync-trendyol', [AdminCategoryController::class, 'syncTrendyolCategories'])->name('categories.sync-trendyol');
     Route::get('/categories/{category}/mapping', [AdminCategoryController::class, 'mapping'])->name('categories.mapping');
     Route::post('/categories/{category}/mapping', [AdminCategoryController::class, 'saveMapping'])->name('categories.save-mapping');
+
+    // Beden yönetimi
+    Route::resource('sizes', App\Http\Controllers\Admin\SizeController::class);
+    Route::post('/sizes/sync-trendyol', [App\Http\Controllers\Admin\SizeController::class, 'syncTrendyolSizes'])->name('sizes.sync-trendyol');
+    Route::get('/sizes/{size}/mapping', [App\Http\Controllers\Admin\SizeController::class, 'mapping'])->name('sizes.mapping');
+    Route::post('/sizes/{size}/mapping', [App\Http\Controllers\Admin\SizeController::class, 'saveMapping'])->name('sizes.save-mapping');
+    Route::get('/sizes-bulk-mapping', [App\Http\Controllers\Admin\SizeController::class, 'bulkMapping'])->name('sizes.bulk-mapping');
+    Route::post('/sizes-bulk-mapping', [App\Http\Controllers\Admin\SizeController::class, 'saveBulkMapping'])->name('sizes.save-bulk-mapping');
 });
 
 // Seller Routes - Satıcı yetkisi gerekli
