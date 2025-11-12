@@ -75,7 +75,9 @@
                                     </option>
                                 @endforeach
                             </select>
-                            <small class="text-muted">Kategori seçilince özellikler yüklenecek</small>
+                            <small class="text-muted">
+                                <i class="fas fa-filter"></i> Ürününüzün kategorisine göre filtreleniyor
+                            </small>
                         </div>
 
                         <!-- 3. Trendyol Marka Seç -->
@@ -224,27 +226,122 @@ document.addEventListener('DOMContentLoaded', function() {
     const attributeInputs = document.getElementById('attributeInputs');
 
     let currentProduct = null;
+    let allCategories = []; // Tüm kategorileri sakla
+
+    // Sayfa yüklendiğinde tüm kategorileri sakla
+    document.querySelectorAll('#categorySelect option').forEach(option => {
+        if (option.value) {
+            allCategories.push({
+                value: option.value,
+                text: option.text,
+                dataParent: option.getAttribute('data-parent'),
+                dataLeaf: option.getAttribute('data-leaf')
+            });
+        }
+    });
 
     // Ürün seçildiğinde ürün bilgilerini al
     productSelect.addEventListener('change', function() {
         const productId = this.value;
         if (!productId) {
             currentProduct = null;
+            resetCategories();
             return;
         }
 
         // Ürün detaylarını AJAX ile al
-        fetch(`/api/products/${productId}`)
+        fetch(`/api/v1/products/${productId}`)
             .then(response => response.json())
             .then(data => {
                 currentProduct = data;
+                console.log('📦 Ürün:', currentProduct);
+                
+                // Ürünün kategorisine göre Trendyol kategorilerini filtrele
+                filterCategoriesByProduct(currentProduct);
+                
                 // Kategori değiştiyse attributes'ı yeniden yükle
                 if (categorySelect.value) {
                     loadCategoryAttributes(categorySelect.value);
                 }
             })
-            .catch(error => console.error('Ürün bilgileri alınamadı:', error));
+            .catch(error => {
+                console.error('Ürün bilgileri alınamadı:', error);
+                resetCategories();
+            });
     });
+
+    // Ürünün kategorisine göre Trendyol kategorilerini filtrele
+    function filterCategoriesByProduct(product) {
+        if (!product.category) {
+            resetCategories();
+            return;
+        }
+
+        const productCategoryName = product.category.name.toLowerCase();
+        console.log('🏷️ Ürün Kategorisi:', productCategoryName);
+
+        // Kategori eşleşme kuralları
+        const categoryMappings = {
+            'giyim': ['giyim', 'elbise', 'bluz', 'pantolon', 'etek', 'kazak', 'mont', 'kaban', 'ceket', 'tişört', 'gömlek'],
+            'ayakkabı': ['ayakkabı', 'bot', 'terlik', 'spor ayakkabı', 'sandalet'],
+            'aksesuar': ['aksesuar', 'takı', 'saat', 'çanta', 'kemer', 'şapka', 'atkı', 'eldiven'],
+            'çanta': ['çanta', 'sırt çantası', 'el çantası', 'omuz çantası'],
+            'ev': ['ev', 'yaşam', 'dekorasyon', 'mutfak', 'banyo', 'tekstil']
+        };
+
+        // Ürün kategorisini tespit et
+        let matchedCategory = null;
+        for (const [key, keywords] of Object.entries(categoryMappings)) {
+            if (keywords.some(keyword => productCategoryName.includes(keyword))) {
+                matchedCategory = key;
+                break;
+            }
+        }
+
+        console.log('🎯 Eşleşen Kategori Tipi:', matchedCategory);
+
+        // Kategorileri filtrele
+        categorySelect.innerHTML = '<option value="">Kategori seçin...</option>';
+        
+        allCategories.forEach(cat => {
+            const catText = cat.text.toLowerCase();
+            let shouldShow = false;
+
+            if (matchedCategory) {
+                // Eşleşen kategoriye göre filtrele
+                const keywords = categoryMappings[matchedCategory];
+                shouldShow = keywords.some(keyword => catText.includes(keyword));
+            } else {
+                // Eşleşme yoksa tüm kategorileri göster
+                shouldShow = true;
+            }
+
+            if (shouldShow) {
+                const option = document.createElement('option');
+                option.value = cat.value;
+                option.text = cat.text;
+                option.setAttribute('data-parent', cat.dataParent);
+                option.setAttribute('data-leaf', cat.dataLeaf);
+                categorySelect.appendChild(option);
+            }
+        });
+
+        const filteredCount = categorySelect.options.length - 1;
+        console.log(`✅ ${filteredCount} kategori gösteriliyor`);
+    }
+
+    // Tüm kategorileri geri yükle
+    function resetCategories() {
+        categorySelect.innerHTML = '<option value="">Kategori seçin...</option>';
+        allCategories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.value;
+            option.text = cat.text;
+            option.setAttribute('data-parent', cat.dataParent);
+            option.setAttribute('data-leaf', cat.dataLeaf);
+            categorySelect.appendChild(option);
+        });
+    }
 
     // Kategori değiştiğinde attributes yükle
     categorySelect.addEventListener('change', function() {
