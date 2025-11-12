@@ -70,12 +70,12 @@ Route::middleware(['auth', 'verified.active', 'admin'])->prefix('admin')->name('
     // Kullanıcı yönetimi
     Route::resource('users', AdminUserController::class)->except(['show']);
     Route::post('/users/{user}/toggle-active', [AdminUserController::class, 'toggleActive'])->name('users.toggle-active');
+    Route::post('/users/{user}/change-role', [AdminUserController::class, 'changeRole'])->name('users.change-role');
 
     // Ürün yönetimi
-    Route::get('/products', [AdminProductController::class, 'index'])->name('products.index');
+    Route::resource('products', AdminProductController::class);
     Route::post('/products/{product}/toggle-active', [AdminProductController::class, 'toggleActive'])->name('products.toggle-active');
     Route::post('/products/{product}/toggle-featured', [AdminProductController::class, 'toggleFeatured'])->name('products.toggle-featured');
-    Route::delete('/products/{product}', [AdminProductController::class, 'destroy'])->name('products.destroy');
 
     // Sipariş yönetimi
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');

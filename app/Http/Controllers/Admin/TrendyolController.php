@@ -203,10 +203,34 @@ class TrendyolController extends Controller
         // Özellikler (attributes from mapping)
         if ($mapping->attribute_mappings && is_array($mapping->attribute_mappings)) {
             $item['attributes'] = [];
-            foreach ($mapping->attribute_mappings as $attrName => $attrValue) {
+            
+            // Kategori attributelerini çek (attribute name -> attribute ID mapping için)
+            $categoryAttributes = $this->trendyolService->getCategoryAttributes(
+                $mapping->trendyolCategory->trendyol_category_id
+            );
+            
+            // Attribute name -> ID mapping oluştur
+            $attributeMap = [];
+            if (!empty($categoryAttributes['attributes'])) {
+                foreach ($categoryAttributes['attributes'] as $attr) {
+                    $attributeMap[$attr['attribute']['name']] = $attr['attribute']['id'];
+                }
+            }
+            
+            // Her attribute için doğru attributeId ve attributeValueId kullan
+            foreach ($mapping->attribute_mappings as $attrName => $attrValueId) {
+                // Attribute ID'yi map'ten al, yoksa skip et
+                if (!isset($attributeMap[$attrName])) {
+                    \Log::warning("Attribute '{$attrName}' not found in category attributes", [
+                        'category_id' => $mapping->trendyolCategory->trendyol_category_id,
+                        'product_id' => $product->id
+                    ]);
+                    continue;
+                }
+                
                 $item['attributes'][] = [
-                    'attributeId' => (int) $attrValue,
-                    'attributeValueId' => (int) $attrValue
+                    'attributeId' => (int) $attributeMap[$attrName],  // Doğru attribute ID
+                    'attributeValueId' => (int) $attrValueId          // Selected value ID
                 ];
             }
         }

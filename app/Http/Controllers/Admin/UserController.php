@@ -53,6 +53,25 @@ class UserController extends Controller
     }
 
     /**
+     * Kullanıcı rolünü değiştirir
+     */
+    public function changeRole(Request $request, User $user)
+    {
+        $request->validate([
+            'role' => 'required|in:admin,seller,user',
+        ]);
+
+        // Admin kendisinin rolünü değiştiremez
+        if ($user->id === auth()->id()) {
+            return back()->with('error', 'Kendi rolünüzü değiştiremezsiniz!');
+        }
+
+        $user->update(['role' => $request->role]);
+
+        return back()->with('success', "Kullanıcı rolü '{$request->role}' olarak güncellendi!");
+    }
+
+    /**
      * Kullanıcıyı siler (soft delete)
      */
     public function destroy(User $user)
