@@ -16,6 +16,7 @@ return new class extends Migration
             $table->integer('trendyol_category_id')->unique(); // Trendyol'dan gelen category ID
             $table->string('name');
             $table->integer('parent_id')->nullable();
+            $table->boolean('is_leaf')->default(false); // Alt kategorisi olmayan son seviye kategori mi?
             $table->timestamps();
             
             $table->index('trendyol_category_id');

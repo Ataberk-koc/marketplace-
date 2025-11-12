@@ -54,7 +54,7 @@ class TrendyolController extends Controller
 
         foreach ($brands as $brandData) {
             TrendyolBrand::updateOrCreate(
-                ['trendyol_id' => $brandData['id']],
+                ['trendyol_brand_id' => $brandData['id']],
                 ['name' => $brandData['name']]
             );
             $syncedCount++;
@@ -89,7 +89,7 @@ class TrendyolController extends Controller
 
         foreach ($categories as $categoryData) {
             TrendyolCategory::updateOrCreate(
-                ['trendyol_id' => $categoryData['id']],
+                ['trendyol_category_id' => $categoryData['id']],
                 [
                     'name' => $categoryData['name'],
                     'parent_id' => $parentId,
