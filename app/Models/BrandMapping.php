@@ -11,7 +11,7 @@ class BrandMapping extends Model
 
     protected $fillable = [
         'brand_id',
-        'trendyol_brand_id',
+        'trendyol_brand_id', // Artık string - Trendyol'un kendi ID'si
         'trendyol_brand_name',
         'is_active',
     ];
@@ -26,13 +26,5 @@ class BrandMapping extends Model
     public function brand()
     {
         return $this->belongsTo(Brand::class);
-    }
-
-    /**
-     * Trendyol markası
-     */
-    public function trendyolBrand()
-    {
-        return $this->belongsTo(TrendyolBrand::class);
     }
 }

@@ -41,6 +41,14 @@ class Size extends Model
     }
 
     /**
+     * Trendyol beden eşleştirmesi (alias)
+     */
+    public function sizeMapping()
+    {
+        return $this->hasOne(SizeMapping::class);
+    }
+
+    /**
      * Trendyol bedeni (mapping üzerinden)
      */
     public function trendyolSize()

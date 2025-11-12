@@ -11,7 +11,7 @@ class SizeMapping extends Model
 
     protected $fillable = [
         'size_id',
-        'trendyol_size_id',
+        'trendyol_size_id', // Foreign key to trendyol_sizes table
         'is_active',
     ];
 
@@ -28,10 +28,10 @@ class SizeMapping extends Model
     }
 
     /**
-     * Trendyol bedeni
+     * Trendyol beden
      */
     public function trendyolSize()
     {
-        return $this->belongsTo(TrendyolSize::class);
+        return $this->belongsTo(TrendyolSize::class, 'trendyol_size_id');
     }
 }

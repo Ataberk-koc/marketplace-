@@ -8,6 +8,7 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
+     * Basitleştirilmiş yapı: Trendyol ID'lerini doğrudan string olarak saklıyoruz
      */
     public function up(): void
     {
@@ -17,16 +18,16 @@ return new class extends Migration
             // Ürün
             $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
             
-            // Trendyol Kategori
-            $table->foreignId('trendyol_category_id')->constrained('trendyol_categories')->onDelete('cascade');
+            // Trendyol Kategori ID (string - Trendyol'un kendi ID'si)
+            $table->string('trendyol_category_id');
             $table->string('trendyol_category_name')->nullable();
             
-            // Trendyol Marka
-            $table->foreignId('trendyol_brand_id')->constrained('trendyol_brands')->onDelete('cascade');
+            // Trendyol Marka ID (string - Trendyol'un kendi ID'si)
+            $table->string('trendyol_brand_id');
             $table->string('trendyol_brand_name')->nullable();
             
             // Özellik Eşleştirmeleri (Beden, Renk, vb.)
-            // JSON format: {"Beden": 102, "Renk": 204, "Kumaş": 301}
+            // JSON format: {"Beden": "S", "Renk": "Kırmızı", "Kumaş": "Pamuk"}
             $table->json('attribute_mappings')->nullable();
             
             // Durum

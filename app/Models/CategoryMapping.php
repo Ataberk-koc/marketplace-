@@ -11,7 +11,7 @@ class CategoryMapping extends Model
 
     protected $fillable = [
         'category_id',
-        'trendyol_category_id',
+        'trendyol_category_id', // Artık string - Trendyol'un kendi ID'si
         'trendyol_category_name',
         'is_active',
     ];
@@ -26,13 +26,5 @@ class CategoryMapping extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
-    }
-
-    /**
-     * Trendyol kategorisi
-     */
-    public function trendyolCategory()
-    {
-        return $this->belongsTo(TrendyolCategory::class);
     }
 }

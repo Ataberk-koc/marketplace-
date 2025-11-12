@@ -137,8 +137,17 @@ Route::middleware(['auth', 'verified.active', 'admin'])->prefix('admin')->name('
         Route::post('/category-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'saveCategoryMapping'])->name('save-category-mapping');
         Route::delete('/category-mapping/{mapping}', [App\Http\Controllers\Admin\TrendyolController::class, 'deleteCategoryMapping'])->name('delete-category-mapping');
         
-        // ÜRN EŞLEŞTİRME (TEK TABLO SİSTEMİ)
+        // BEDEN (SIZE) EŞLEŞTİRME
+        Route::get('/size-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'sizeMappingIndex'])->name('size-mapping');
+        Route::get('/size-mapping/create', [App\Http\Controllers\Admin\TrendyolController::class, 'sizeMappingCreate'])->name('size-mapping-create');
+        Route::post('/size-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'saveSizeMapping'])->name('save-size-mapping');
+        Route::delete('/size-mapping/{mapping}', [App\Http\Controllers\Admin\TrendyolController::class, 'deleteSizeMapping'])->name('delete-size-mapping');
+        Route::get('/api/trendyol-attribute-values', [App\Http\Controllers\Admin\TrendyolController::class, 'getTrendyolAttributeValues'])->name('api.trendyol-attribute-values');
+        
+        // ÜRÜN EŞLEŞTİRME (YENİ AKIŞ: Marka → Kategori → Ürün)
         Route::get('/product-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'productMapping'])->name('product-mapping');
+        Route::get('/api/categories-by-brand/{brandId}', [App\Http\Controllers\Admin\TrendyolController::class, 'getCategoriesByBrand'])->name('api.categories-by-brand');
+        Route::get('/api/products-by-brand-category', [App\Http\Controllers\Admin\TrendyolController::class, 'getProductsByBrandAndCategory'])->name('api.products-by-brand-category');
         Route::get('/category-attributes/{categoryId}', [App\Http\Controllers\Admin\TrendyolController::class, 'getCategoryAttributes'])->name('category-attributes');
         Route::post('/product-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'saveProductMapping'])->name('save-product-mapping');
         Route::delete('/product-mapping/{mapping}', [App\Http\Controllers\Admin\TrendyolController::class, 'deleteProductMapping'])->name('delete-product-mapping');
@@ -159,6 +168,7 @@ Route::middleware(['auth', 'verified.active', 'seller'])->prefix('seller')->name
 
     // Ürün yönetimi
     Route::resource('products', SellerProductController::class);
+    Route::get('/api/attributes-by-category', [SellerProductController::class, 'getAttributesByCategory'])->name('api.attributes-by-category');
 
     // Sipariş yönetimi
     Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');

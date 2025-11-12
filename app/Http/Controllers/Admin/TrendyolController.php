@@ -6,10 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Brand;
 use App\Models\Category;
-use App\Models\TrendyolBrand;
-use App\Models\TrendyolCategory;
+use App\Models\Size;
+use App\Models\BrandMapping;
+use App\Models\CategoryMapping;
+use App\Models\SizeMapping;
+use App\Models\TrendyolSize;
+use App\Models\ProductTrendyolMapping;
 use App\Services\TrendyolService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TrendyolController extends Controller
 {
@@ -27,21 +32,21 @@ class TrendyolController extends Controller
     {
         $stats = [
             'total_products' => Product::count(),
-            'mapped_products' => \App\Models\ProductTrendyolMapping::where('status', 'pending')->count(),
-            'sent_products' => \App\Models\ProductTrendyolMapping::whereIn('status', ['sent', 'approved'])->count(),
-            'mapped_brands' => Brand::has('trendyolMapping')->count(),
+            'mapped_products' => ProductTrendyolMapping::where('status', 'pending')->count(),
+            'sent_products' => ProductTrendyolMapping::whereIn('status', ['sent', 'approved'])->count(),
+            'mapped_brands' => BrandMapping::where('is_active', true)->count(),
             'total_brands' => Brand::count(),
-            'mapped_categories' => Category::has('trendyolMapping')->count(),
+            'mapped_categories' => CategoryMapping::where('is_active', true)->count(),
             'total_categories' => Category::count(),
-            'trendyol_brands' => TrendyolBrand::count(),
-            'trendyol_categories' => TrendyolCategory::count(),
+            'trendyol_brands' => count(session('trendyol_brands', [])),
+            'trendyol_categories' => count(session('trendyol_categories', [])),
         ];
 
         return view('admin.trendyol.index', compact('stats'));
     }
 
     /**
-     * Trendyol'dan markaları senkronize et
+     * Trendyol'dan markaları senkronize et (Session'a kaydet)
      */
     public function syncBrands()
     {
@@ -52,21 +57,14 @@ class TrendyolController extends Controller
         }
 
         $brands = $result['data']['brands'] ?? [];
-        $syncedCount = 0;
+        session(['trendyol_brands' => $brands]);
 
-        foreach ($brands as $brandData) {
-            TrendyolBrand::updateOrCreate(
-                ['trendyol_brand_id' => $brandData['id']],
-                ['name' => $brandData['name']]
-            );
-            $syncedCount++;
-        }
-
-        return back()->with('success', "{$syncedCount} marka senkronize edildi!");
+        $syncedCount = count($brands);
+        return back()->with('success', "{$syncedCount} marka yüklendi!");
     }
 
     /**
-     * Trendyol'dan kategorileri senkronize et
+     * Trendyol'dan kategorileri senkronize et (Session'a kaydet)
      */
     public function syncCategories()
     {
@@ -77,489 +75,451 @@ class TrendyolController extends Controller
         }
 
         $categories = $result['data']['categories'] ?? [];
-        $syncedCount = $this->syncCategoriesRecursive($categories);
+        session(['trendyol_categories' => $categories]);
 
-        return back()->with('success', "{$syncedCount} kategori senkronize edildi!");
+        $syncedCount = count($categories);
+        return back()->with('success', "{$syncedCount} kategori yüklendi!");
     }
 
     /**
-     * Kategorileri recursive olarak senkronize et
+     * Toplu ürün gönderme
      */
-    private function syncCategoriesRecursive($categories, $parentId = null)
+    public function bulkSend(Request $request)
     {
-        $count = 0;
+        $mappingIds = $request->input('mappings', []);
 
-        foreach ($categories as $categoryData) {
-            TrendyolCategory::updateOrCreate(
-                ['trendyol_category_id' => $categoryData['id']],
-                [
-                    'name' => $categoryData['name'],
-                    'parent_id' => $parentId,
-                    'is_leaf' => !isset($categoryData['subCategories']) || empty($categoryData['subCategories'])
-                ]
-            );
-            $count++;
-
-            // Alt kategoriler varsa onları da ekle
-            if (isset($categoryData['subCategories']) && !empty($categoryData['subCategories'])) {
-                $count += $this->syncCategoriesRecursive($categoryData['subCategories'], $categoryData['id']);
-            }
+        if (empty($mappingIds)) {
+            return back()->with('error', 'Lütfen en az bir ürün seçin!');
         }
 
-        return $count;
-    }
+        $mappings = ProductTrendyolMapping::whereIn('id', $mappingIds)
+            ->where('status', 'pending')
+            ->with('product')
+            ->get();
 
-    /**
-     * Toplu ürün gönderimi - YENİ: ProductTrendyolMapping kullanır
-     */
-    public function bulkSendProducts(Request $request)
-    {
-        // Sadece henüz gönderilmemiş ürünleri al
-        $mappings = \App\Models\ProductTrendyolMapping::with([
-            'product.sizes',
-            'trendyolCategory',
-            'trendyolBrand'
-        ])->where('is_active', true)
-          ->where('status', 'pending')
-          ->get();
+        $successCount = 0;
+        $errorCount = 0;
 
-        if ($mappings->isEmpty()) {
-            return back()->with('error', 'Gönderilecek eşleştirilmiş ürün bulunamadı!');
-        }
-
-        // Ürünleri Trendyol formatına dönüştür
-        $items = [];
-        $mappingIds = [];
         foreach ($mappings as $mapping) {
-            $formattedProduct = $this->formatProductForTrendyol($mapping);
-            if ($formattedProduct) {
-                $items[] = $formattedProduct;
-                $mappingIds[] = $mapping->id;
+            $productData = $this->formatProductForTrendyol($mapping);
+            $result = $this->trendyolService->createProduct($productData);
+
+            if ($result['success']) {
+                $mapping->update([
+                    'status' => 'sent',
+                    'sent_at' => now(),
+                    'sent_by' => auth()->id(),
+                    'trendyol_response' => $result['data'] ?? null
+                ]);
+                $successCount++;
+            } else {
+                $mapping->update([
+                    'status' => 'error',
+                    'error_message' => $result['message'] ?? 'Bilinmeyen hata'
+                ]);
+                $errorCount++;
             }
         }
 
-        if (empty($items)) {
-            return back()->with('error', 'Formatlanabilir ürün bulunamadı!');
+        return back()->with('success', "{$successCount} ürün gönderildi, {$errorCount} hata oluştu!");
+    }
+
+    /**
+     * Tek ürün gönderme
+     */
+    public function sendSingleProduct(Product $product)
+    {
+        $mapping = ProductTrendyolMapping::where('product_id', $product->id)
+            ->where('status', 'pending')
+            ->first();
+
+        if (!$mapping) {
+            return back()->with('error', 'Ürün eşleştirilmemiş veya zaten gönderilmiş!');
         }
 
-        // Trendyol'a gönder
-        $result = $this->trendyolService->createProducts($items);
+        $productData = $this->formatProductForTrendyol($mapping);
+        $result = $this->trendyolService->createProduct($productData);
 
-        if (!$result['success']) {
-            return back()->with('error', 'Ürün gönderimi başarısız: ' . ($result['message'] ?? 'Bilinmeyen hata'));
+        if ($result['success']) {
+            $mapping->update([
+                'status' => 'sent',
+                'sent_at' => now(),
+                'sent_by' => auth()->id(),
+                'trendyol_response' => $result['data'] ?? null
+            ]);
+            return back()->with('success', 'Ürün başarıyla Trendyol\'a gönderildi!');
         }
 
-        // Başarılı gönderimde mapping'leri güncelle
-        $batchRequestId = $result['batchRequestId'] ?? null;
-        \App\Models\ProductTrendyolMapping::whereIn('id', $mappingIds)->update([
-            'status' => 'sent',
-            'batch_request_id' => $batchRequestId,
-            'sent_at' => now(),
+        $mapping->update([
+            'status' => 'error',
+            'error_message' => $result['message'] ?? 'Bilinmeyen hata'
         ]);
 
-        return back()->with('success', count($items) . ' ürün Trendyol\'a gönderildi! Batch ID: ' . $batchRequestId);
+        return back()->with('error', 'Ürün gönderilemedi: ' . ($result['message'] ?? 'Bilinmeyen hata'));
     }
 
     /**
-     * Ürünü Trendyol formatına dönüştür
+     * Ürünü Trendyol formatına çevir
+     * ⭐ SADECE MAPPING TABLOLARINDAN ÇEKILEN TRENDYOL ID'LERİ KULLANILIR
      */
-    protected function formatProductForTrendyol($mapping)
+    private function formatProductForTrendyol(ProductTrendyolMapping $mapping)
     {
         $product = $mapping->product;
-
-        // Temel alan kontrolü
-        if (!$product->sku || !$product->name) {
-            return null;
+        
+        // ⭐ FAZ 3.1: Marka ID'sini mapping'den al
+        $brandMapping = $product->brand->trendyolMapping;
+        if (!$brandMapping) {
+            throw new \Exception("Ürünün markası ({$product->brand->name}) Trendyol ile eşleştirilmemiş!");
         }
+        $trendyolBrandId = $brandMapping->trendyol_brand_id;
+        
+        // ⭐ FAZ 3.2: Kategori ID'sini mapping'den al
+        $categoryMapping = $product->category->trendyolMapping;
+        if (!$categoryMapping) {
+            throw new \Exception("Ürünün kategorisi ({$product->category->name}) Trendyol ile eşleştirilmemiş!");
+        }
+        $trendyolCategoryId = $categoryMapping->trendyol_category_id;
+        
+        // ⭐ FAZ 3.3: Özellik (Beden/Renk) ID'lerini mapping'den al
+        $attributes = [];
+        foreach ($product->sizes as $size) {
+            $sizeMapping = $size->sizeMapping;
+            if (!$sizeMapping || !$sizeMapping->trendyolSize) {
+                \Log::warning("Size mapping eksik", ['size_id' => $size->id, 'size_name' => $size->name]);
+                continue; // Zorunlu değilse atla
+            }
+            
+            $trendyolSize = $sizeMapping->trendyolSize;
+            $attributes[] = [
+                'attributeId' => (int) $trendyolSize->trendyol_attribute_id,
+                'attributeValueId' => (int) $trendyolSize->trendyol_attribute_value_id
+            ];
+        }
+        
+        // Fiyatları belirle (önce custom fiyatlar, sonra ürün fiyatı)
+        $listPrice = $mapping->custom_price ?? $product->price;
+        $salePrice = $mapping->custom_sale_price ?? $product->discount_price ?? $product->price;
 
-        $item = [
+        // ⭐ TRENDYOL PAYLOAD - SADECE TRENDYOL ID'LERİ
+        return [
             'barcode' => $product->sku,
             'title' => $product->name,
-            'productMainId' => $product->sku, // Ana ürün ID (grup için)
-            'brandId' => $mapping->trendyolBrand->trendyol_brand_id,
-            'categoryId' => $mapping->trendyolCategory->trendyol_category_id,
-            'quantity' => $product->stock_quantity ?? 0,
+            'productMainId' => $product->id, // İç referans için
+            'brandId' => (int) $trendyolBrandId, // ⭐ Mapping'den
+            'categoryId' => (int) $trendyolCategoryId, // ⭐ Mapping'den
+            'quantity' => $product->stock_quantity,
             'stockCode' => $product->sku,
-            'dimensionalWeight' => 1, // Varsayılan
+            'dimensionalWeight' => 1,
             'description' => $product->description ?? $product->name,
             'currencyType' => 'TRY',
-            // Custom fiyat varsa onu kullan, yoksa ürünün kendi fiyatı
-            'listPrice' => (float) ($mapping->custom_price ?? $product->price),
-            'salePrice' => (float) ($mapping->custom_sale_price ?? $product->discount_price ?? $product->price),
-            'cargoCompanyId' => 10, // Varsayılan kargo (Aras)
-            'deliveryDuration' => 3, // 3 gün
-            'images' => [],
+            'listPrice' => (float) $listPrice,
+            'salePrice' => (float) $salePrice,
+            'cargoCompanyId' => 10,
+            'images' => $this->formatImages($product->images),
+            'attributes' => $attributes, // ⭐ Mapping'den
         ];
+    }
 
-        // Görseller
-        if ($product->images && is_array($product->images)) {
-            foreach ($product->images as $index => $image) {
-                $item['images'][] = [
-                    'url' => $image,
-                    'order' => $index + 1
-                ];
-            }
+    /**
+     * Görselleri formatla
+     */
+    private function formatImages($images)
+    {
+        if (empty($images)) {
+            return [];
         }
 
-        // Özellikler (attributes from mapping)
-        if ($mapping->attribute_mappings && is_array($mapping->attribute_mappings)) {
-            $item['attributes'] = [];
-            
-            // Kategori attributelerini çek (attribute name -> attribute ID mapping için)
-            $categoryAttributes = $this->trendyolService->getCategoryAttributes(
-                $mapping->trendyolCategory->trendyol_category_id
-            );
-            
-            // Attribute name -> ID mapping oluştur
-            $attributeMap = [];
-            if (!empty($categoryAttributes['attributes'])) {
-                foreach ($categoryAttributes['attributes'] as $attr) {
-                    $attributeMap[$attr['attribute']['name']] = $attr['attribute']['id'];
-                }
-            }
-            
-            // Her attribute için doğru attributeId ve attributeValueId kullan
-            foreach ($mapping->attribute_mappings as $attrName => $attrValueId) {
-                // Attribute ID'yi map'ten al, yoksa skip et
-                if (!isset($attributeMap[$attrName])) {
-                    \Log::warning("Attribute '{$attrName}' not found in category attributes", [
-                        'category_id' => $mapping->trendyolCategory->trendyol_category_id,
-                        'product_id' => $product->id
-                    ]);
-                    continue;
-                }
-                
-                $item['attributes'][] = [
-                    'attributeId' => (int) $attributeMap[$attrName],  // Doğru attribute ID
-                    'attributeValueId' => (int) $attrValueId          // Selected value ID
-                ];
-            }
+        $formatted = [];
+        foreach ($images as $index => $image) {
+            $formatted[] = [
+                'url' => is_array($image) ? ($image['url'] ?? $image) : $image,
+                'order' => $index + 1
+            ];
         }
 
-        return $item;
+        return $formatted;
     }
 
     /**
-     * Tek Ürün Gönderimi
+     * Özellikleri formatla
      */
-    public function sendSingleProduct($mappingId)
+    private function formatAttributes($attributes)
     {
-        $mapping = \App\Models\ProductTrendyolMapping::with([
-            'product.sizes',
-            'trendyolCategory',
-            'trendyolBrand'
-        ])->findOrFail($mappingId);
-
-        // Zaten gönderilmiş mi kontrol et
-        if ($mapping->status === 'sent') {
-            return back()->with('warning', 'Bu ürün zaten Trendyol\'a gönderilmiş!');
+        if (empty($attributes)) {
+            return [];
         }
 
-        // Ürünü Trendyol formatına dönüştür
-        $formattedProduct = $this->formatProductForTrendyol($mapping);
-        
-        if (!$formattedProduct) {
-            return back()->with('error', 'Ürün formatlanamadı. Lütfen ürün bilgilerini kontrol edin (SKU, isim vb.)');
+        $formatted = [];
+        foreach ($attributes as $key => $value) {
+            $formatted[] = [
+                'attributeId' => $key,
+                'attributeValueId' => $value
+            ];
         }
 
-        // Trendyol'a gönder (tek ürün için array olarak gönder)
-        $result = $this->trendyolService->createProducts([$formattedProduct]);
-
-        if (!$result['success']) {
-            return back()->with('error', 'Ürün gönderimi başarısız: ' . ($result['message'] ?? 'Bilinmeyen hata'));
-        }
-
-        // Başarılı gönderimde mapping'i güncelle
-        $mapping->update([
-            'status' => 'sent',
-            'batch_request_id' => $result['batchRequestId'] ?? null,
-            'sent_at' => now(),
-        ]);
-
-        return back()->with('success', '✓ "' . $mapping->product->name . '" Trendyol\'a gönderildi! Batch ID: ' . ($result['batchRequestId'] ?? 'N/A'));
+        return $formatted;
     }
 
     /**
-     * Toplu stok/fiyat güncelleme
-     */
-    public function bulkUpdateInventory(Request $request)
-    {
-        $request->validate([
-            'updates' => 'required|array',
-            'updates.*.barcode' => 'required|string',
-            'updates.*.quantity' => 'nullable|integer|min:0|max:20000',
-            'updates.*.salePrice' => 'nullable|numeric|min:0',
-            'updates.*.listPrice' => 'nullable|numeric|min:0',
-        ]);
-
-        $result = $this->trendyolService->updatePriceAndInventory($request->updates);
-
-        if ($result['success']) {
-            $batchRequestId = $result['data']['batchRequestId'] ?? null;
-            return back()->with('success', 'Stok/Fiyat güncellendi! Batch ID: ' . $batchRequestId);
-        }
-
-        return back()->with('error', 'Güncelleme başarısız: ' . ($result['message'] ?? 'Bilinmeyen hata'));
-    }
-
-    /**
-     * Toplu ürün silme
-     */
-    public function bulkDeleteProducts(Request $request)
-    {
-        $barcodes = $request->input('barcodes', []);
-
-        if (empty($barcodes)) {
-            return back()->with('error', 'Lütfen en az bir barkod girin!');
-        }
-
-        $result = $this->trendyolService->deleteProducts($barcodes);
-
-        if ($result['success']) {
-            $batchRequestId = $result['data']['batchRequestId'] ?? null;
-            return back()->with('success', 'Ürünler silindi! Batch ID: ' . $batchRequestId);
-        }
-
-        return back()->with('error', 'Silme başarısız: ' . ($result['message'] ?? 'Bilinmeyen hata'));
-    }
-
-    /**
-     * Batch işlem durumu kontrolü
-     */
-    public function checkBatchStatus($batchRequestId)
-    {
-        $result = $this->trendyolService->getBatchRequestResult($batchRequestId);
-
-        if ($result['success']) {
-            return response()->json($result['data']);
-        }
-
-        return response()->json(['error' => $result['message']], 400);
-    }
-
-    /**
-     * Trendyol ürünlerini filtrele/listele
-     */
-    public function filterProducts(Request $request)
-    {
-        $filters = $request->only(['approved', 'onSale', 'barcode', 'startDate', 'endDate', 'page', 'size']);
-
-        $result = $this->trendyolService->filterProducts($filters);
-
-        if ($result['success']) {
-            return view('admin.trendyol.products', [
-                'products' => $result['data']['content'] ?? [],
-                'totalPages' => $result['data']['totalPages'] ?? 1,
-                'currentPage' => $result['data']['page'] ?? 0,
-            ]);
-        }
-
-        return back()->with('error', 'Ürünler listelenemedi: ' . ($result['message'] ?? 'Bilinmeyen hata'));
-    }
-
-    /**
-     * Marka Eşleştirme Sayfası
-     */
-    public function brandMapping()
-    {
-        $localBrands = Brand::with('trendyolMapping')->orderBy('name')->get();
-        $trendyolBrands = TrendyolBrand::orderBy('name')->get();
-        
-        return view('admin.trendyol.brand-mapping', compact('localBrands', 'trendyolBrands'));
-    }
-
-    /**
-     * Marka Eşleştirme Kaydet
-     */
-    public function saveBrandMapping(Request $request)
-    {
-        $request->validate([
-            'brand_id' => 'required|exists:brands,id',
-            'trendyol_brand_id' => 'required|exists:trendyol_brands,id'
-        ]);
-
-        $localBrand = Brand::findOrFail($request->brand_id);
-        $trendyolBrand = TrendyolBrand::findOrFail($request->trendyol_brand_id);
-
-        // BrandMapping tablosuna kaydet
-        // NOT: trendyol_brand_id = Laravel ID (foreign key), trendyol_brand_name = bilgi amaçlı
-        \App\Models\BrandMapping::updateOrCreate(
-            ['brand_id' => $localBrand->id],
-            [
-                'trendyol_brand_id' => $trendyolBrand->id, // Laravel ID kullan (foreign key)
-                'trendyol_brand_name' => $trendyolBrand->name
-            ]
-        );
-
-        return back()->with('success', "\"{$localBrand->name}\" markası \"{$trendyolBrand->name}\" ile eşleştirildi!");
-    }
-
-    /**
-     * Marka Eşleştirme Sil
-     */
-    public function deleteBrandMapping($mappingId)
-    {
-        $mapping = \App\Models\BrandMapping::findOrFail($mappingId);
-        $brandName = $mapping->brand->name ?? 'Bilinmeyen';
-        $mapping->delete();
-
-        return back()->with('success', "\"{$brandName}\" eşleştirmesi silindi!");
-    }
-
-    /**
-     * Kategori Eşleştirme Sayfası
-     */
-    public function categoryMapping()
-    {
-        $localCategories = Category::with('trendyolMapping')->orderBy('name')->get();
-        $trendyolCategories = TrendyolCategory::orderBy('name')->get();
-        
-        return view('admin.trendyol.category-mapping', compact('localCategories', 'trendyolCategories'));
-    }
-
-    /**
-     * Kategori Eşleştirme Kaydet
-     */
-    public function saveCategoryMapping(Request $request)
-    {
-        $request->validate([
-            'category_id' => 'required|exists:categories,id',
-            'trendyol_category_id' => 'required|exists:trendyol_categories,id'
-        ]);
-
-        $localCategory = Category::findOrFail($request->category_id);
-        $trendyolCategory = TrendyolCategory::findOrFail($request->trendyol_category_id);
-
-        // CategoryMapping tablosuna kaydet
-        // NOT: trendyol_category_id = Laravel ID (foreign key), trendyol_category_name = bilgi amaçlı
-        \App\Models\CategoryMapping::updateOrCreate(
-            ['category_id' => $localCategory->id],
-            [
-                'trendyol_category_id' => $trendyolCategory->id, // Laravel ID kullan (foreign key)
-                'trendyol_category_name' => $trendyolCategory->name
-            ]
-        );
-
-        return back()->with('success', "\"{$localCategory->name}\" kategorisi \"{$trendyolCategory->name}\" ile eşleştirildi!");
-    }
-
-    /**
-     * Kategori Eşleştirme Sil
-     */
-    public function deleteCategoryMapping($mappingId)
-    {
-        $mapping = \App\Models\CategoryMapping::findOrFail($mappingId);
-        $categoryName = $mapping->category->name ?? 'Bilinmeyen';
-        $mapping->delete();
-
-        return back()->with('success', "\"{$categoryName}\" eşleştirmesi silindi!");
-    }
-
-    /**
-     * Ürün Eşleştirme Sayfası (TEK TABLO SİSTEMİ)
-     */
-    public function productMapping()
-    {
-        $products = Product::with(['brand', 'category', 'trendyolMapping'])->get();
-        $trendyolCategories = TrendyolCategory::orderBy('name')->get();
-        $trendyolBrands = TrendyolBrand::orderBy('name')->get();
-        
-        // Sadece henüz gönderilmemiş eşleştirmeleri göster
-        $existingMappings = \App\Models\ProductTrendyolMapping::with([
-            'product.brand',
-            'product.category',
-            'trendyolCategory',
-            'trendyolBrand'
-        ])->where('status', 'pending')->get();
-
-        // Gönderilmiş ürünleri ayrı listele
-        $sentProducts = \App\Models\ProductTrendyolMapping::with([
-            'product.brand',
-            'product.category',
-            'trendyolCategory',
-            'trendyolBrand'
-        ])->whereIn('status', ['sent', 'approved', 'rejected'])
-          ->orderBy('sent_at', 'desc')
-          ->get();
-
-        $stats = [
-            'total_products' => Product::count(),
-            'mapped_products' => \App\Models\ProductTrendyolMapping::where('status', 'pending')->count(),
-            'unmapped_products' => Product::count() - \App\Models\ProductTrendyolMapping::count(),
-            'sent_products' => \App\Models\ProductTrendyolMapping::whereIn('status', ['sent', 'approved', 'rejected'])->count(),
-        ];
-
-        return view('admin.trendyol.product-mapping', compact(
-            'products',
-            'trendyolCategories',
-            'trendyolBrands',
-            'existingMappings',
-            'sentProducts',
-            'stats'
-        ));
-    }
-
-    /**
-     * Kategori Özelliklerini Getir (AJAX)
+     * Kategori özelliklerini getir
      */
     public function getCategoryAttributes($categoryId)
     {
-        // Laravel ID'den Trendyol API ID'sini al
-        $trendyolCategory = TrendyolCategory::findOrFail($categoryId);
-        $trendyolCategoryApiId = $trendyolCategory->trendyol_category_id;
-        
-        // Trendyol API ID ile attributes çek
-        $result = $this->trendyolService->getCategoryAttributes($trendyolCategoryApiId);
-        
+        $result = $this->trendyolService->getCategoryAttributes($categoryId);
+
         if (!$result['success']) {
-            return response()->json(['success' => false, 'message' => $result['message']], 400);
+            return response()->json([
+                'success' => false,
+                'message' => 'Kategori özellikleri alınamadı'
+            ], 500);
         }
 
         return response()->json([
             'success' => true,
-            'attributes' => $result['data']['categoryAttributes'] ?? []
+            'categoryAttributes' => $result['data']['categoryAttributes'] ?? []
         ]);
     }
 
     /**
-     * Ürün Eşleştirme Kaydet
+     * Ürün eşleştirme sayfası
+     * Sıralama: 1) Marka Seç → 2) Kategori Seç → 3) Ürün Seç
+     */
+    public function productMapping()
+    {
+        // Yerel markalar (sadece aktif olanlar)
+        $localBrands = Brand::where('is_active', true)
+            ->withCount('products')
+            ->orderBy('name')
+            ->get();
+        
+        // Trendyol markaları (session'dan)
+        $trendyolBrands = session('trendyol_brands', []);
+        
+        // Eğer session boşsa API'den çek
+        if (empty($trendyolBrands)) {
+            $result = $this->trendyolService->getBrands();
+            if ($result['success']) {
+                $trendyolBrands = $result['data']['brands'] ?? [];
+                session(['trendyol_brands' => $trendyolBrands]);
+            }
+        }
+        
+        // Trendyol kategorileri (session'dan)
+        $trendyolCategories = session('trendyol_categories', []);
+        
+        // Eğer session boşsa API'den çek
+        if (empty($trendyolCategories)) {
+            $result = $this->trendyolService->getCategories();
+            if ($result['success']) {
+                $trendyolCategories = $result['data']['categories'] ?? [];
+                session(['trendyol_categories' => $trendyolCategories]);
+            }
+        }
+        
+        // Bekleyen eşleştirmeler
+        $mappings = ProductTrendyolMapping::with('product.brand', 'product.category')
+            ->latest()
+            ->get();
+
+        $stats = [
+            'total_products' => Product::count(),
+            'mapped_products' => ProductTrendyolMapping::whereIn('status', ['active', 'sent'])->count(),
+            'pending_products' => ProductTrendyolMapping::where('status', 'pending')->count(),
+            'unmapped_products' => Product::count() - ProductTrendyolMapping::count(),
+        ];
+
+        return view('admin.trendyol.product-mapping-alpine', compact(
+            'localBrands',
+            'trendyolCategories',
+            'trendyolBrands',
+            'mappings',
+            'stats'
+        ));
+    }
+    
+    /**
+     * API: Seçilen markaya ait yerel kategorileri getir
+     */
+    public function getCategoriesByBrand($brandId)
+    {
+        \Log::info('getCategoriesByBrand called', ['brandId' => $brandId]);
+        
+        $categories = Category::where('is_active', true)
+            ->whereHas('products', function($query) use ($brandId) {
+                $query->where('brand_id', $brandId);
+            })
+            ->withCount('products')
+            ->orderBy('name')
+            ->get();
+            
+        \Log::info('Categories found', ['count' => $categories->count()]);
+        
+        return response()->json([
+            'success' => true,
+            'data' => $categories
+        ]);
+    }
+    
+    /**
+     * API: Seçilen marka ve kategoriye ait ürünleri getir
+     */
+    public function getProductsByBrandAndCategory(Request $request)
+    {
+        $brandId = $request->input('brand_id');
+        $categoryId = $request->input('category_id');
+        
+        $products = Product::with(['brand', 'category', 'sizes'])
+            ->where('brand_id', $brandId)
+            ->where('category_id', $categoryId)
+            ->where('is_active', true)
+            ->get();
+            
+        return response()->json([
+            'success' => true,
+            'data' => $products
+        ]);
+    }
+
+    /**
+     * Ürün eşleştirmesini kaydet
      */
     public function saveProductMapping(Request $request)
     {
         $request->validate([
             'product_id' => 'required|exists:products,id',
-            'trendyol_category_id' => 'required|exists:trendyol_categories,id',
-            'trendyol_brand_id' => 'required|exists:trendyol_brands,id',
+            'trendyol_category_id' => 'required|string',
+            'trendyol_category_name' => 'nullable|string',
+            'trendyol_brand_id' => 'required|string',
+            'trendyol_brand_name' => 'nullable|string',
             'attribute_mappings' => 'nullable|array',
+            'custom_price' => 'nullable|numeric|min:0',
+            'custom_sale_price' => 'nullable|numeric|min:0',
         ]);
 
-        $product = Product::findOrFail($request->product_id);
-        $trendyolCategory = TrendyolCategory::findOrFail($request->trendyol_category_id);
-        $trendyolBrand = TrendyolBrand::findOrFail($request->trendyol_brand_id);
-
-        \App\Models\ProductTrendyolMapping::updateOrCreate(
-            ['product_id' => $product->id],
+        ProductTrendyolMapping::updateOrCreate(
+            ['product_id' => $request->product_id],
             [
-                'trendyol_category_id' => $trendyolCategory->id,
-                'trendyol_category_name' => $trendyolCategory->name,
-                'trendyol_brand_id' => $trendyolBrand->id,
-                'trendyol_brand_name' => $trendyolBrand->name,
-                'attribute_mappings' => $request->attribute_mappings ?? [],
+                'trendyol_category_id' => $request->trendyol_category_id,
+                'trendyol_category_name' => $request->trendyol_category_name,
+                'trendyol_brand_id' => $request->trendyol_brand_id,
+                'trendyol_brand_name' => $request->trendyol_brand_name,
+                'attribute_mappings' => $request->attribute_mappings,
+                'custom_price' => $request->custom_price,
+                'custom_sale_price' => $request->custom_sale_price,
+                'status' => 'pending',
+                'is_active' => true,
             ]
         );
 
-        return back()->with('success', "\"{$product->name}\" ürünü Trendyol ile eşleştirildi!");
+        return redirect()->route('admin.trendyol.product-mapping')
+            ->with('success', 'Ürün eşleştirmesi kaydedildi!');
     }
 
     /**
-     * Ürün Eşleştirme Sil
+     * Ürün eşleştirmesini sil
      */
-    public function deleteProductMapping($mappingId)
+    public function deleteMapping(ProductTrendyolMapping $mapping)
     {
-        $mapping = \App\Models\ProductTrendyolMapping::findOrFail($mappingId);
-        $productName = $mapping->product->name ?? 'Bilinmeyen';
         $mapping->delete();
+        return back()->with('success', 'Eşleştirme silindi!');
+    }
 
-        return back()->with('success', "\"{$productName}\" eşleştirmesi silindi!");
+    // ============================================
+    // FAZ 1: SIZE (BEDEN) MAPPING CRUD
+    // ============================================
+
+    /**
+     * Beden eşleştirme listesi
+     */
+    public function sizeMappingIndex()
+    {
+        $mappings = SizeMapping::with(['size', 'trendyolSize'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $stats = [
+            'total_sizes' => Size::count(),
+            'mapped_sizes' => SizeMapping::where('is_active', true)->count(),
+            'unmapped_sizes' => Size::count() - SizeMapping::count(),
+        ];
+
+        return view('admin.trendyol.size-mapping', compact('mappings', 'stats'));
+    }
+
+    /**
+     * Beden eşleştirme oluşturma formu
+     */
+    public function sizeMappingCreate()
+    {
+        // Henüz eşleştirilmemiş bedenler
+        $unmappedSizes = Size::whereDoesntHave('sizeMapping')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        // Tüm Trendyol özellikleri (TrendyolSize'dan)
+        $trendyolAttributes = TrendyolSize::select('attribute_name', 'trendyol_category_id')
+            ->distinct()
+            ->orderBy('attribute_name')
+            ->get()
+            ->groupBy('attribute_name');
+
+        return view('admin.trendyol.size-mapping-create', compact('unmappedSizes', 'trendyolAttributes'));
+    }
+
+    /**
+     * Kategoriye göre Trendyol özellik değerlerini getir (AJAX)
+     */
+    public function getTrendyolAttributeValues(Request $request)
+    {
+        $attributeName = $request->input('attribute_name');
+        $categoryId = $request->input('category_id'); // Opsiyonel filtre
+
+        $query = TrendyolSize::where('attribute_name', $attributeName);
+
+        if ($categoryId) {
+            $query->where('trendyol_category_id', $categoryId);
+        }
+
+        $values = $query->orderBy('value_name')->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $values
+        ]);
+    }
+
+    /**
+     * Beden eşleştirmesini kaydet
+     */
+    public function saveSizeMapping(Request $request)
+    {
+        $request->validate([
+            'size_id' => 'required|exists:sizes,id',
+            'trendyol_size_id' => 'required|exists:trendyol_sizes,id',
+        ]);
+
+        // Aynı size_id için mevcut mapping varsa güncelle
+        SizeMapping::updateOrCreate(
+            ['size_id' => $request->size_id],
+            [
+                'trendyol_size_id' => $request->trendyol_size_id,
+                'is_active' => true
+            ]
+        );
+
+        return redirect()->route('admin.trendyol.size-mapping')
+            ->with('success', 'Beden eşleştirmesi kaydedildi!');
+    }
+
+    /**
+     * Beden eşleştirmesini sil
+     */
+    public function deleteSizeMapping(SizeMapping $mapping)
+    {
+        $mapping->delete();
+        
+        return redirect()->route('admin.trendyol.size-mapping')
+            ->with('success', 'Beden eşleştirmesi silindi!');
     }
 }

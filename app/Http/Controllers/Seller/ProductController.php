@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Brand;
 use App\Models\Category;
+use App\Models\CategoryMapping;
+use App\Models\TrendyolSize;
 use App\Models\Size;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -177,5 +179,62 @@ class ProductController extends Controller
         $product->delete();
 
         return back()->with('success', 'Ürün silindi!');
+    }
+
+    // ============================================
+    // FAZ 2: DİNAMİK ÖZELLİKLER (AJAX)
+    // ============================================
+
+    /**
+     * Seçilen kategoriye göre dinamik özellikleri getir (AJAX)
+     * Brand → Category → Dynamic Attributes akışı için
+     */
+    public function getAttributesByCategory(Request $request)
+    {
+        $categoryId = $request->input('category_id');
+
+        if (!$categoryId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kategori ID gerekli'
+            ], 400);
+        }
+
+        // Kategorinin Trendyol eşleşmesini bul
+        $categoryMapping = CategoryMapping::where('category_id', $categoryId)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$categoryMapping) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Bu kategorinin Trendyol eşleşmesi yok',
+                'attributes' => []
+            ]);
+        }
+
+        // TrendyolSize'dan o kategoriye ait tüm özellikleri çek
+        $attributes = TrendyolSize::where('trendyol_category_id', $categoryMapping->trendyol_category_id)
+            ->get()
+            ->groupBy('attribute_name')
+            ->map(function ($values, $attributeName) {
+                return [
+                    'attribute_name' => $attributeName,
+                    'values' => $values->map(function ($value) {
+                        return [
+                            'id' => $value->id,
+                            'trendyol_attribute_id' => $value->trendyol_attribute_id,
+                            'trendyol_attribute_value_id' => $value->trendyol_attribute_value_id,
+                            'value_name' => $value->value_name,
+                        ];
+                    })->values()
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'attributes' => $attributes
+        ]);
     }
 }

@@ -104,6 +104,7 @@ class BrandController extends Controller
 
     /**
      * Trendyol markalarını senkronize eder
+     * Artık veritabanına kaydetmiyor, sadece API'den çekip gösteriyor
      */
     public function syncTrendyolBrands()
     {
@@ -113,16 +114,11 @@ class BrandController extends Controller
             return back()->with('error', 'Trendyol markaları alınamadı: ' . $result['message']);
         }
 
-        $syncCount = 0;
-        foreach ($result['data']['brands'] ?? [] as $trendyolBrand) {
-            TrendyolBrand::updateOrCreate(
-                ['trendyol_brand_id' => $trendyolBrand['id']],
-                ['name' => $trendyolBrand['name']]
-            );
-            $syncCount++;
-        }
+        // Artık veritabanına kaydetmiyoruz, sadece session'a alıyoruz
+        session(['trendyol_brands' => $result['data']['brands'] ?? []]);
 
-        return back()->with('success', "{$syncCount} Trendyol markası senkronize edildi!");
+        $count = count($result['data']['brands'] ?? []);
+        return back()->with('success', "{$count} Trendyol markası yüklendi!");
     }
 
     /**
@@ -130,7 +126,18 @@ class BrandController extends Controller
      */
     public function mapping(Brand $brand)
     {
-        $trendyolBrands = TrendyolBrand::all();
+        // Trendyol markalarını API'den çek (veya session'dan al)
+        $trendyolBrands = session('trendyol_brands', []);
+        
+        // Eğer session boşsa API'den çek
+        if (empty($trendyolBrands)) {
+            $result = $this->trendyolService->getBrands();
+            if ($result['success']) {
+                $trendyolBrands = $result['data']['brands'] ?? [];
+                session(['trendyol_brands' => $trendyolBrands]);
+            }
+        }
+
         $currentMapping = $brand->trendyolMapping;
 
         return view('admin.brands.mapping', compact('brand', 'trendyolBrands', 'currentMapping'));
@@ -149,15 +156,31 @@ class BrandController extends Controller
         }
 
         $request->validate([
-            'trendyol_brand_id' => 'required|exists:trendyol_brands,id',
+            'trendyol_brand_id' => 'required|string',
+            'trendyol_brand_name' => 'nullable|string',
         ]);
 
         BrandMapping::updateOrCreate(
             ['brand_id' => $brand->id],
-            ['trendyol_brand_id' => $request->trendyol_brand_id, 'is_active' => true]
+            [
+                'trendyol_brand_id' => $request->trendyol_brand_id, // Trendyol'un kendi ID'si
+                'trendyol_brand_name' => $request->trendyol_brand_name,
+                'is_active' => true
+            ]
         );
 
         return redirect()->route('admin.brands.index')
             ->with('success', 'Marka eşleştirmesi kaydedildi!');
+    }
+
+    /**
+     * Marka eşleştirmesini siler
+     */
+    public function deleteMapping(Brand $brand)
+    {
+        BrandMapping::where('brand_id', $brand->id)->delete();
+        
+        return redirect()->route('admin.brands.index')
+            ->with('success', 'Marka eşleştirmesi silindi!');
     }
 }

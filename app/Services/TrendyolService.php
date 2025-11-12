@@ -633,6 +633,16 @@ class TrendyolService
     }
 
     /**
+     * Tek Ürün Aktarma (createProduct - wrapper for createProducts)
+     * POST /integration/product/sellers/{sellerId}/products
+     */
+    public function createProduct($productData)
+    {
+        // Tek ürünü array içine alıp createProducts'a gönder
+        return $this->createProducts([$productData]);
+    }
+
+    /**
      * Ürün Aktarma (v2/createProducts)
      * POST /integration/product/sellers/{sellerId}/products
      * Maksimum 1000 item per request

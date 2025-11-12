@@ -5,7 +5,7 @@
 @section('content')
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="fas fa-box-open"></i> Ürün Eşleştirme (Tek Tablo Sistemi)</h2>
+        <h2><i class="fas fa-box-open"></i> Ürün Eşleştirme (Marka → Kategori → Ürün)</h2>
         <a href="{{ route('admin.trendyol.index') }}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Geri Dön
         </a>
@@ -36,65 +36,92 @@
                     <form action="{{ route('admin.trendyol.save-product-mapping') }}" method="POST" id="mappingForm">
                         @csrf
 
-                        <!-- 1. Ürün Seç -->
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">1. Ürünü Seçin</label>
-                            <select name="product_id" id="productSelect" class="form-select" required>
-                                <option value="">Ürün seçin...</option>
-                                @foreach($products as $product)
-                                    <option value="{{ $product->id }}" 
-                                        data-has-mapping="{{ $product->trendyolMapping ? 'true' : 'false' }}"
-                                        {{ $product->trendyolMapping ? 'disabled' : '' }}>
-                                        {{ $product->name }} 
-                                        @if($product->trendyolMapping)
-                                            (✓ Eşleştirilmiş)
-                                        @endif
+                        <!-- ADIM 1: Yerel Marka Seç -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <span class="badge bg-primary me-2">1</span> Yerel Marka Seçin
+                            </label>
+                            <select id="localBrandSelect" class="form-select form-select-lg" required>
+                                <option value="">Marka seçin...</option>
+                                @foreach($localBrands as $brand)
+                                    <option value="{{ $brand->id }}">
+                                        {{ $brand->name }} ({{ $brand->products_count }} ürün)
                                     </option>
                                 @endforeach
                             </select>
-                            <small class="text-muted">Eşleştirilmiş ürünler devre dışı</small>
+                            <small class="text-muted">İlk olarak yerel markanızı seçin</small>
                         </div>
 
-                        <!-- 2. Trendyol Kategori Seç -->
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">2. Trendyol Kategorisi</label>
-                            <select name="trendyol_category_id" id="categorySelect" class="form-select" required>
+                        <!-- ADIM 2: Yerel Kategori Seç (Marka seçildikten sonra gösterilecek) -->
+                        <div class="mb-4" id="localCategorySection" style="display:none;">
+                            <label class="form-label fw-bold">
+                                <span class="badge bg-primary me-2">2</span> Yerel Kategori Seçin
+                            </label>
+                            <select id="localCategorySelect" class="form-select form-select-lg">
                                 <option value="">Kategori seçin...</option>
+                            </select>
+                            <small class="text-muted">Seçilen markaya ait kategoriler</small>
+                        </div>
+
+                        <!-- ADIM 3: Ürün Seç (Kategori seçildikten sonra gösterilecek) -->
+                        <div class="mb-4" id="productSection" style="display:none;">
+                            <label class="form-label fw-bold">
+                                <span class="badge bg-primary me-2">3</span> Ürün Seçin
+                            </label>
+                            <select name="product_id" id="productSelect" class="form-select form-select-lg" required>
+                                <option value="">Ürün seçin...</option>
+                            </select>
+                            <small class="text-muted">Seçilen marka ve kategoriye ait ürünler</small>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- ADIM 4: Trendyol Marka Seç -->
+                        <div class="mb-4" id="trendyolBrandSection" style="display:none;">
+                            <label class="form-label fw-bold">
+                                <span class="badge bg-success me-2">4</span> Trendyol Markası
+                            </label>
+                            <select name="trendyol_brand_id" id="trendyolBrandSelect" class="form-select" required>
+                                <option value="">Trendyol markası seçin...</option>
+                                @foreach($trendyolBrands as $brand)
+                                    <option value="{{ $brand['id'] }}" data-name="{{ $brand['name'] }}">
+                                        {{ $brand['name'] }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <input type="hidden" name="trendyol_brand_name" id="trendyolBrandName">
+                        </div>
+
+                        <!-- ADIM 5: Trendyol Kategori Seç -->
+                        <div class="mb-4" id="trendyolCategorySection" style="display:none;">
+                            <label class="form-label fw-bold">
+                                <span class="badge bg-success me-2">5</span> Trendyol Kategorisi
+                            </label>
+                            <select name="trendyol_category_id" id="trendyolCategorySelect" class="form-select" required>
+                                <option value="">Trendyol kategorisi seçin...</option>
                                 @foreach($trendyolCategories as $category)
-                                    <option value="{{ $category->id }}" 
-                                        data-parent="{{ $category->parent_id }}"
-                                        data-leaf="{{ $category->is_leaf ? 'true' : 'false' }}">
-                                        @if($category->parent_id)
-                                            └─ {{ $category->name }}
-                                            @if($category->is_leaf)
-                                                <span class="text-success">✓</span>
-                                            @endif
-                                        @else
-                                            <strong>{{ $category->name }}</strong>
+                                    <option value="{{ $category['id'] }}" 
+                                        data-name="{{ $category['name'] }}"
+                                        data-leaf="{{ isset($category['subCategories']) && count($category['subCategories']) > 0 ? 'false' : 'true' }}">
+                                        {{ $category['name'] }}
+                                        @if(!isset($category['subCategories']) || count($category['subCategories']) == 0)
+                                            <span class="text-success">✓</span>
                                         @endif
                                     </option>
                                 @endforeach
                             </select>
+                            <input type="hidden" name="trendyol_category_name" id="trendyolCategoryName">
                             <small class="text-muted">
-                                <i class="fas fa-filter"></i> Ürününüzün kategorisine göre filtreleniyor
+                                <i class="fas fa-info-circle"></i> Sadece leaf (son seviye) kategoriler seçilebilir
                             </small>
                         </div>
 
-                        <!-- 3. Trendyol Marka Seç -->
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">3. Trendyol Markası</label>
-                            <select name="trendyol_brand_id" id="brandSelect" class="form-select" required>
-                                <option value="">Marka seçin...</option>
-                                @foreach($trendyolBrands as $brand)
-                                    <option value="{{ $brand->id }}">{{ $brand->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <!-- 4. Özellik Eşleştirmeleri (Dinamik Yüklenecek) -->
+                        <!-- ADIM 6: Özellik Eşleştirmeleri (Dinamik Yüklenecek) -->
                         <div id="attributesSection" style="display:none;">
-                            <hr>
-                            <h6 class="fw-bold mb-3">4. Özellik Eşleştirmeleri</h6>
+                            <hr class="my-4">
+                            <label class="form-label fw-bold">
+                                <span class="badge bg-warning me-2">6</span> Özellik Eşleştirmeleri
+                            </label>
                             <div class="alert alert-info">
                                 <small>
                                     <i class="fas fa-lightbulb"></i> 
@@ -635,6 +662,131 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Özellikler yüklenirken hata oluştu!');
             });
     }
+
+    // YENİ AKIŞ: Marka → Kategori → Ürün
+    const localBrandSelect = document.getElementById('localBrandSelect');
+    const localCategorySection = document.getElementById('localCategorySection');
+    const localCategorySelect = document.getElementById('localCategorySelect');
+    const productSection = document.getElementById('productSection');
+    const productSelect = document.getElementById('productSelect');
+    const trendyolBrandSection = document.getElementById('trendyolBrandSection');
+    const trendyolCategorySection = document.getElementById('trendyolCategorySection');
+    const trendyolBrandSelect = document.getElementById('trendyolBrandSelect');
+    const trendyolCategorySelect = document.getElementById('trendyolCategorySelect');
+
+    console.log('✅ JavaScript yüklendi!');
+    console.log('localBrandSelect:', localBrandSelect);
+    
+    if (!localBrandSelect) {
+        console.error('❌ localBrandSelect elementi bulunamadı!');
+    }
+
+    // ADIM 1: Marka seçildiğinde kategorileri getir
+    localBrandSelect.addEventListener('change', function() {
+        const brandId = this.value;
+        console.log('🏷️ Marka seçildi:', brandId);
+        
+        if (!brandId) {
+            localCategorySection.style.display = 'none';
+            productSection.style.display = 'none';
+            trendyolBrandSection.style.display = 'none';
+            trendyolCategorySection.style.display = 'none';
+            return;
+        }
+
+        // Kategorileri API'den çek
+        const url = `/admin/trendyol/api/categories-by-brand/${brandId}`;
+        console.log('📡 API çağrılıyor:', url);
+        
+        fetch(url)
+            .then(response => {
+                console.log('📥 Response alındı:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('📦 Data:', data);
+                if (data.success) {
+                    localCategorySelect.innerHTML = '<option value="">Kategori seçin...</option>';
+                    data.data.forEach(category => {
+                        const option = document.createElement('option');
+                        option.value = category.id;
+                        option.textContent = `${category.name} (${category.products_count} ürün)`;
+                        localCategorySelect.appendChild(option);
+                    });
+                    localCategorySection.style.display = 'block';
+                    console.log('✅ Kategoriler yüklendi, toplam:', data.data.length);
+                } else {
+                    console.error('❌ API başarısız:', data);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Kategoriler yüklenirken hata:', error);
+                alert('Kategoriler yüklenirken hata oluştu: ' + error.message);
+            });
+    });
+
+    // ADIM 2: Kategori seçildiğinde ürünleri getir
+    localCategorySelect.addEventListener('change', function() {
+        const brandId = localBrandSelect.value;
+        const categoryId = this.value;
+        
+        if (!categoryId) {
+            productSection.style.display = 'none';
+            trendyolBrandSection.style.display = 'none';
+            trendyolCategorySection.style.display = 'none';
+            return;
+        }
+
+        // Ürünleri API'den çek
+        fetch(`/admin/trendyol/api/products-by-brand-category?brand_id=${brandId}&category_id=${categoryId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    productSelect.innerHTML = '<option value="">Ürün seçin...</option>';
+                    data.data.forEach(product => {
+                        const option = document.createElement('option');
+                        option.value = product.id;
+                        option.textContent = `${product.name} (Stok: ${product.stock_quantity})`;
+                        productSelect.appendChild(option);
+                    });
+                    productSection.style.display = 'block';
+                }
+            })
+            .catch(error => console.error('Ürünler yüklenirken hata:', error));
+    });
+
+    // ADIM 3: Ürün seçildiğinde Trendyol alanlarını göster
+    productSelect.addEventListener('change', function() {
+        if (this.value) {
+            trendyolBrandSection.style.display = 'block';
+            trendyolCategorySection.style.display = 'block';
+        } else {
+            trendyolBrandSection.style.display = 'none';
+            trendyolCategorySection.style.display = 'none';
+            attributesSection.style.display = 'none';
+        }
+    });
+
+    // Trendyol marka seçildiğinde hidden inputa kaydet
+    trendyolBrandSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        document.getElementById('trendyolBrandName').value = selectedOption.getAttribute('data-name');
+    });
+
+    // Trendyol kategori seçildiğinde hidden inputa kaydet ve özellikleri yükle
+    trendyolCategorySelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const categoryId = this.value;
+        
+        document.getElementById('trendyolCategoryName').value = selectedOption.getAttribute('data-name');
+        
+        if (categoryId) {
+            // Kategori özelliklerini yükle (eski fonksiyon kullanılacak)
+            loadCategoryAttributes(categoryId);
+        } else {
+            attributesSection.style.display = 'none';
+        }
+    });
 });
 </script>
 @endsection

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\TrendyolCategory;
 use App\Models\CategoryMapping;
+use App\Models\TrendyolSize;
 use App\Services\TrendyolService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -114,6 +115,7 @@ class CategoryController extends Controller
 
     /**
      * Trendyol kategorilerini senkronize eder
+     * Artık veritabanına kaydetmiyor, sadece API'den çekip gösteriyor
      */
     public function syncTrendyolCategories()
     {
@@ -123,19 +125,11 @@ class CategoryController extends Controller
             return back()->with('error', 'Trendyol kategorileri alınamadı: ' . $result['message']);
         }
 
-        $syncCount = 0;
-        foreach ($result['data']['categories'] ?? [] as $trendyolCategory) {
-            TrendyolCategory::updateOrCreate(
-                ['trendyol_category_id' => $trendyolCategory['id']],
-                [
-                    'name' => $trendyolCategory['name'],
-                    'parent_id' => $trendyolCategory['parentId'] ?? null,
-                ]
-            );
-            $syncCount++;
-        }
+        // Artık veritabanına kaydetmiyoruz, sadece session'a alıyoruz
+        session(['trendyol_categories' => $result['data']['categories'] ?? []]);
 
-        return back()->with('success', "{$syncCount} Trendyol kategorisi senkronize edildi!");
+        $count = count($result['data']['categories'] ?? []);
+        return back()->with('success', "{$count} Trendyol kategorisi yüklendi!");
     }
 
     /**
@@ -143,7 +137,18 @@ class CategoryController extends Controller
      */
     public function mapping(Category $category)
     {
-        $trendyolCategories = TrendyolCategory::all();
+        // Trendyol kategorilerini API'den çek (veya session'dan al)
+        $trendyolCategories = session('trendyol_categories', []);
+        
+        // Eğer session boşsa API'den çek
+        if (empty($trendyolCategories)) {
+            $result = $this->trendyolService->getCategories();
+            if ($result['success']) {
+                $trendyolCategories = $result['data']['categories'] ?? [];
+                session(['trendyol_categories' => $trendyolCategories]);
+            }
+        }
+
         $currentMapping = $category->trendyolMapping;
 
         return view('admin.categories.mapping', compact('category', 'trendyolCategories', 'currentMapping'));
@@ -162,15 +167,66 @@ class CategoryController extends Controller
         }
 
         $request->validate([
-            'trendyol_category_id' => 'required|exists:trendyol_categories,id',
+            'trendyol_category_id' => 'required|string',
+            'trendyol_category_name' => 'nullable|string',
         ]);
 
         CategoryMapping::updateOrCreate(
             ['category_id' => $category->id],
-            ['trendyol_category_id' => $request->trendyol_category_id, 'is_active' => true]
+            [
+                'trendyol_category_id' => $request->trendyol_category_id,
+                'trendyol_category_name' => $request->trendyol_category_name,
+                'is_active' => true
+            ]
         );
+
+        // ⭐ KRİTİK: Kategori eşleştirildiğinde Trendyol'dan özellikleri çek ve kaydet
+        try {
+            $attributesResult = $this->trendyolService->getCategoryAttributes($request->trendyol_category_id);
+            
+            if ($attributesResult['success'] && isset($attributesResult['data']['categoryAttributes'])) {
+                $attributes = $attributesResult['data']['categoryAttributes'];
+                $savedCount = 0;
+                
+                foreach ($attributes as $attrGroup) {
+                    $attribute = $attrGroup['attribute'];
+                    $attributeValues = $attrGroup['attributeValues'] ?? [];
+                    
+                    foreach ($attributeValues as $value) {
+                        TrendyolSize::updateOrCreate(
+                            [
+                                'trendyol_attribute_id' => (string) $attribute['id'],
+                                'trendyol_attribute_value_id' => (string) $value['id']
+                            ],
+                            [
+                                'attribute_name' => $attribute['name'], // "Beden", "Renk", "Kumaş"
+                                'value_name' => $value['name'], // "S", "M", "L", "Kırmızı"
+                                'trendyol_category_id' => $request->trendyol_category_id
+                            ]
+                        );
+                        $savedCount++;
+                    }
+                }
+                
+                return redirect()->route('admin.categories.index')
+                    ->with('success', "Kategori eşleştirmesi kaydedildi! {$savedCount} özellik değeri Trendyol'dan çekildi.");
+            }
+        } catch (\Exception $e) {
+            \Log::error('Trendyol özellikleri kaydedilemedi: ' . $e->getMessage());
+        }
 
         return redirect()->route('admin.categories.index')
             ->with('success', 'Kategori eşleştirmesi kaydedildi!');
+    }
+
+    /**
+     * Kategori eşleştirmesini siler
+     */
+    public function deleteMapping(Category $category)
+    {
+        CategoryMapping::where('category_id', $category->id)->delete();
+        
+        return redirect()->route('admin.categories.index')
+            ->with('success', 'Kategori eşleştirmesi silindi!');
     }
 }
