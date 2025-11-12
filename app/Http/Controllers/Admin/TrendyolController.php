@@ -347,4 +347,94 @@ class TrendyolController extends Controller
 
         return back()->with('success', "\"{$categoryName}\" eşleştirmesi silindi!");
     }
+
+    /**
+     * Ürün Eşleştirme Sayfası (TEK TABLO SİSTEMİ)
+     */
+    public function productMapping()
+    {
+        $products = Product::with(['brand', 'category', 'trendyolMapping'])->get();
+        $trendyolCategories = TrendyolCategory::orderBy('name')->get();
+        $trendyolBrands = TrendyolBrand::orderBy('name')->get();
+        
+        $existingMappings = \App\Models\ProductTrendyolMapping::with([
+            'product.brand',
+            'product.category',
+            'trendyolCategory',
+            'trendyolBrand'
+        ])->get();
+
+        $stats = [
+            'total_products' => Product::count(),
+            'mapped_products' => \App\Models\ProductTrendyolMapping::count(),
+            'unmapped_products' => Product::count() - \App\Models\ProductTrendyolMapping::count(),
+        ];
+
+        return view('admin.trendyol.product-mapping', compact(
+            'products',
+            'trendyolCategories',
+            'trendyolBrands',
+            'existingMappings',
+            'stats'
+        ));
+    }
+
+    /**
+     * Kategori Özelliklerini Getir (AJAX)
+     */
+    public function getCategoryAttributes($categoryId)
+    {
+        $result = $this->trendyolService->getCategoryAttributes($categoryId);
+        
+        if (!$result['success']) {
+            return response()->json(['success' => false, 'message' => $result['message']], 400);
+        }
+
+        return response()->json([
+            'success' => true,
+            'attributes' => $result['data']['categoryAttributes'] ?? []
+        ]);
+    }
+
+    /**
+     * Ürün Eşleştirme Kaydet
+     */
+    public function saveProductMapping(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'trendyol_category_id' => 'required|exists:trendyol_categories,id',
+            'trendyol_brand_id' => 'required|exists:trendyol_brands,id',
+            'attribute_mappings' => 'nullable|array',
+        ]);
+
+        $product = Product::findOrFail($request->product_id);
+        $trendyolCategory = TrendyolCategory::findOrFail($request->trendyol_category_id);
+        $trendyolBrand = TrendyolBrand::findOrFail($request->trendyol_brand_id);
+
+        \App\Models\ProductTrendyolMapping::updateOrCreate(
+            ['product_id' => $product->id],
+            [
+                'trendyol_category_id' => $trendyolCategory->id,
+                'trendyol_category_name' => $trendyolCategory->name,
+                'trendyol_brand_id' => $trendyolBrand->id,
+                'trendyol_brand_name' => $trendyolBrand->name,
+                'attribute_mappings' => $request->attribute_mappings ?? [],
+            ]
+        );
+
+        return back()->with('success', "\"{$product->name}\" ürünü Trendyol ile eşleştirildi!");
+    }
+
+    /**
+     * Ürün Eşleştirme Sil
+     */
+    public function deleteProductMapping($mappingId)
+    {
+        $mapping = \App\Models\ProductTrendyolMapping::findOrFail($mappingId);
+        $productName = $mapping->product->name ?? 'Bilinmeyen';
+        $mapping->delete();
+
+        return back()->with('success', "\"{$productName}\" eşleştirmesi silindi!");
+    }
 }

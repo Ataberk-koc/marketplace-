@@ -89,6 +89,9 @@
                     <a href="{{ route('admin.trendyol.category-mapping') }}" class="btn btn-outline-success btn-sm">
                         <i class="fas fa-sitemap"></i> Kategori Eşleştir
                     </a>
+                    <a href="{{ route('admin.trendyol.product-mapping') }}" class="btn btn-outline-warning btn-sm">
+                        <i class="fas fa-box-open"></i> Ürün Eşleştir (Tek Tablo)
+                    </a>
                 </div>
             </div>
         </div>

@@ -118,6 +118,12 @@ Route::middleware(['auth', 'verified.active', 'admin'])->prefix('admin')->name('
         Route::post('/category-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'saveCategoryMapping'])->name('save-category-mapping');
         Route::delete('/category-mapping/{mapping}', [App\Http\Controllers\Admin\TrendyolController::class, 'deleteCategoryMapping'])->name('delete-category-mapping');
         
+        // ÜRN EŞLEŞTİRME (TEK TABLO SİSTEMİ)
+        Route::get('/product-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'productMapping'])->name('product-mapping');
+        Route::get('/category-attributes/{categoryId}', [App\Http\Controllers\Admin\TrendyolController::class, 'getCategoryAttributes'])->name('category-attributes');
+        Route::post('/product-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'saveProductMapping'])->name('save-product-mapping');
+        Route::delete('/product-mapping/{mapping}', [App\Http\Controllers\Admin\TrendyolController::class, 'deleteProductMapping'])->name('delete-product-mapping');
+        
         Route::post('/bulk-send', [App\Http\Controllers\Admin\TrendyolController::class, 'bulkSendProducts'])->name('bulk-send');
         Route::post('/bulk-update-inventory', [App\Http\Controllers\Admin\TrendyolController::class, 'bulkUpdateInventory'])->name('bulk-update-inventory');
         Route::post('/bulk-delete', [App\Http\Controllers\Admin\TrendyolController::class, 'bulkDeleteProducts'])->name('bulk-delete');

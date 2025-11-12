@@ -103,9 +103,17 @@ class Product extends Model
     }
 
     /**
-     * Trendyol ürün eşleştirmesi
+     * Trendyol ürün eşleştirmesi (YENİ - Tek tablo sistemi)
      */
     public function trendyolMapping()
+    {
+        return $this->hasOne(ProductTrendyolMapping::class);
+    }
+
+    /**
+     * ESKİ Trendyol ürün eşleştirmesi (Compatibility için korundu)
+     */
+    public function trendyolProductMapping()
     {
         return $this->hasOne(TrendyolProductMapping::class);
     }

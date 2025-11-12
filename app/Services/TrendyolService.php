@@ -327,30 +327,13 @@ class TrendyolService
     }
 
     /**
-     * Kategori Özellikleri
+     * Kategori Özellikleri (Beden, Renk, Kumaş, vb.)
+     * GET /integration/product/product-categories/{categoryId}/attributes
      */
     public function getCategoryAttributes($categoryId)
     {
         if ($this->isMockMode) {
-            return [
-                'success' => true,
-                'data' => [
-                    'categoryAttributes' => [
-                        [
-                            'attribute' => [
-                                'id' => 1,
-                                'name' => 'Beden',
-                            ],
-                            'attributeValues' => [
-                                ['id' => 101, 'name' => 'S'],
-                                ['id' => 102, 'name' => 'M'],
-                                ['id' => 103, 'name' => 'L'],
-                                ['id' => 104, 'name' => 'XL'],
-                            ]
-                        ]
-                    ]
-                ]
-            ];
+            return $this->getMockCategoryAttributes($categoryId);
         }
         
         try {
@@ -363,10 +346,153 @@ class TrendyolService
                 ];
             }
             
+            Log::error('Trendyol getCategoryAttributes error', [
+                'categoryId' => $categoryId,
+                'response' => $response->body(),
+                'status' => $response->status()
+            ]);
+            
             return ['success' => false, 'message' => 'Kategori öznitelikleri alınamadı'];
         } catch (\Exception $e) {
+            Log::error('Trendyol getCategoryAttributes exception', [
+                'categoryId' => $categoryId,
+                'error' => $e->getMessage()
+            ]);
+            
             return ['success' => false, 'message' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Mock Kategori Özellikleri - Kategori tipine göre farklı attributes
+     */
+    protected function getMockCategoryAttributes($categoryId)
+    {
+        Log::info('TrendyolService: Mock kategori özellikleri', ['categoryId' => $categoryId]);
+        
+        // Giyim kategorileri için (Elbise, Bluz, Pantolon, vb.)
+        if (in_array($categoryId, [1001, 1002, 1003, 1004, 1005, 1006, 1007, 2001, 2002, 2003])) {
+            return [
+                'success' => true,
+                'data' => [
+                    'categoryAttributes' => [
+                        [
+                            'attribute' => ['id' => 1, 'name' => 'Beden'],
+                            'attributeValues' => [
+                                ['id' => 101, 'name' => 'XS'],
+                                ['id' => 102, 'name' => 'S'],
+                                ['id' => 103, 'name' => 'M'],
+                                ['id' => 104, 'name' => 'L'],
+                                ['id' => 105, 'name' => 'XL'],
+                                ['id' => 106, 'name' => 'XXL'],
+                                ['id' => 107, 'name' => '34'],
+                                ['id' => 108, 'name' => '36'],
+                                ['id' => 109, 'name' => '38'],
+                                ['id' => 110, 'name' => '40'],
+                                ['id' => 111, 'name' => '42'],
+                                ['id' => 112, 'name' => '44'],
+                            ],
+                            'required' => true,
+                            'varianter' => true,
+                        ],
+                        [
+                            'attribute' => ['id' => 2, 'name' => 'Renk'],
+                            'attributeValues' => [
+                                ['id' => 201, 'name' => 'Beyaz'],
+                                ['id' => 202, 'name' => 'Siyah'],
+                                ['id' => 203, 'name' => 'Kırmızı'],
+                                ['id' => 204, 'name' => 'Mavi'],
+                                ['id' => 205, 'name' => 'Yeşil'],
+                                ['id' => 206, 'name' => 'Sarı'],
+                                ['id' => 207, 'name' => 'Turuncu'],
+                                ['id' => 208, 'name' => 'Mor'],
+                                ['id' => 209, 'name' => 'Pembe'],
+                                ['id' => 210, 'name' => 'Gri'],
+                                ['id' => 211, 'name' => 'Kahverengi'],
+                                ['id' => 212, 'name' => 'Lacivert'],
+                            ],
+                            'required' => true,
+                            'varianter' => true,
+                        ],
+                        [
+                            'attribute' => ['id' => 3, 'name' => 'Kumaş'],
+                            'attributeValues' => [
+                                ['id' => 301, 'name' => 'Pamuk'],
+                                ['id' => 302, 'name' => 'Polyester'],
+                                ['id' => 303, 'name' => 'Viskon'],
+                                ['id' => 304, 'name' => 'Yün'],
+                                ['id' => 305, 'name' => 'Deri'],
+                                ['id' => 306, 'name' => 'Kot'],
+                                ['id' => 307, 'name' => 'Kadife'],
+                            ],
+                            'required' => false,
+                            'varianter' => false,
+                        ],
+                    ]
+                ]
+            ];
+        }
+        
+        // Ayakkabı kategorileri için
+        if (in_array($categoryId, [102, 202])) {
+            return [
+                'success' => true,
+                'data' => [
+                    'categoryAttributes' => [
+                        [
+                            'attribute' => ['id' => 4, 'name' => 'Numara'],
+                            'attributeValues' => [
+                                ['id' => 401, 'name' => '36'],
+                                ['id' => 402, 'name' => '37'],
+                                ['id' => 403, 'name' => '38'],
+                                ['id' => 404, 'name' => '39'],
+                                ['id' => 405, 'name' => '40'],
+                                ['id' => 406, 'name' => '41'],
+                                ['id' => 407, 'name' => '42'],
+                                ['id' => 408, 'name' => '43'],
+                                ['id' => 409, 'name' => '44'],
+                                ['id' => 410, 'name' => '45'],
+                            ],
+                            'required' => true,
+                            'varianter' => true,
+                        ],
+                        [
+                            'attribute' => ['id' => 2, 'name' => 'Renk'],
+                            'attributeValues' => [
+                                ['id' => 201, 'name' => 'Beyaz'],
+                                ['id' => 202, 'name' => 'Siyah'],
+                                ['id' => 203, 'name' => 'Kırmızı'],
+                                ['id' => 204, 'name' => 'Mavi'],
+                                ['id' => 210, 'name' => 'Gri'],
+                                ['id' => 211, 'name' => 'Kahverengi'],
+                            ],
+                            'required' => true,
+                            'varianter' => true,
+                        ],
+                    ]
+                ]
+            ];
+        }
+        
+        // Diğer kategoriler için genel attributes
+        return [
+            'success' => true,
+            'data' => [
+                'categoryAttributes' => [
+                    [
+                        'attribute' => ['id' => 1, 'name' => 'Beden'],
+                        'attributeValues' => [
+                            ['id' => 102, 'name' => 'S'],
+                            ['id' => 103, 'name' => 'M'],
+                            ['id' => 104, 'name' => 'L'],
+                            ['id' => 105, 'name' => 'XL'],
+                        ],
+                        'required' => true,
+                        'varianter' => true,
+                    ]
+                ]
+            ]
+        ];
     }
 
     /**
