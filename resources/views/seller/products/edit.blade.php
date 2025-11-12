@@ -61,11 +61,11 @@
                         </div>
                     </div>
 
-                    @if($product->images && count(json_decode($product->images)) > 0)
+                    @if($product->images && is_array($product->images) && count($product->images) > 0)
                     <div class="mb-3">
                         <label class="form-label">Mevcut Görseller</label>
                         <div class="row">
-                            @foreach(json_decode($product->images) as $image)
+                            @foreach($product->images as $image)
                             <div class="col-md-3 mb-2">
                                 <img src="{{ $image }}" class="img-thumbnail" alt="Product Image">
                             </div>

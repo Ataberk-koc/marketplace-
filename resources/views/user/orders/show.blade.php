@@ -77,8 +77,8 @@
                     @foreach($order->items as $item)
                     <div class="row align-items-center mb-3 pb-3 border-bottom">
                         <div class="col-md-2">
-                            @if($item->product && $item->product->images && count(json_decode($item->product->images)) > 0)
-                                <img src="{{ json_decode($item->product->images)[0] }}" 
+                            @if($item->product && $item->product->images && is_array($item->product->images) && count($item->product->images) > 0)
+                                <img src="{{ $item->product->images[0] }}" 
                                      class="img-fluid rounded" alt="{{ $item->product_name }}">
                             @else
                                 <div class="bg-secondary rounded" style="height: 80px;"></div>
