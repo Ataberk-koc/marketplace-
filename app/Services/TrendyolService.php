@@ -633,20 +633,69 @@ class TrendyolService
     }
 
     /**
-     * Diğer metodlar - Mock mode durumunda warning döndür
+     * Ürün Aktarma (v2/createProducts)
+     * POST /integration/product/sellers/{sellerId}/products
+     * Maksimum 1000 item per request
      */
-    public function createProducts($productData)
+    public function createProducts($items)
     {
         if ($this->isMockMode) {
             Log::warning('Mock mode: Ürün gönderme işlemi gerçekleştirilemez');
             return [
-                'success' => false,
-                'message' => 'Mock mode aktif - Gerçek ürün gönderimi için Trendyol API credentials gerekli'
+                'success' => true, // Mock mode'da başarılı göster (test için)
+                'message' => 'Mock mode: Ürünler gönderildi (simülasyon)',
+                'batchRequestId' => 'MOCK-' . uniqid(),
+                'itemCount' => count($items)
             ];
         }
         
-        // Gerçek API implementasyonu...
-        return ['success' => false, 'message' => 'Not implemented'];
+        try {
+            // Maksimum 1000 item kontrolü
+            if (count($items) > 1000) {
+                return [
+                    'success' => false,
+                    'message' => 'Maksimum 1000 ürün gönderilebilir. Şu an: ' . count($items)
+                ];
+            }
+
+            $response = $this->request('post', "/integration/product/sellers/{$this->supplierId}/products", [
+                'items' => $items
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                Log::info('Trendyol ürün gönderimi başarılı', [
+                    'batchRequestId' => $data['batchRequestId'] ?? null,
+                    'itemCount' => count($items)
+                ]);
+                
+                return [
+                    'success' => true,
+                    'message' => 'Ürünler başarıyla gönderildi',
+                    'batchRequestId' => $data['batchRequestId'] ?? null,
+                    'data' => $data
+                ];
+            }
+
+            Log::error('Trendyol ürün gönderimi hatası', [
+                'response' => $response->body(),
+                'status' => $response->status()
+            ]);
+            
+            return [
+                'success' => false,
+                'message' => 'Ürün gönderimi başarısız',
+                'error' => $response->body()
+            ];
+        } catch (\Exception $e) {
+            Log::error('Trendyol createProducts exception', ['error' => $e->getMessage()]);
+            
+            return [
+                'success' => false,
+                'message' => 'Bir hata oluştu: ' . $e->getMessage()
+            ];
+        }
     }
 
     public function updateProduct($productData)
@@ -673,12 +722,50 @@ class TrendyolService
         return ['success' => false, 'message' => 'Not implemented'];
     }
 
+    /**
+     * Batch İşlem Durumu Kontrolü
+     * GET /integration/product/sellers/{sellerId}/products/batch-requests/{batchRequestId}
+     */
     public function getBatchRequestResult($batchRequestId)
     {
         if ($this->isMockMode) {
-            return ['success' => false, 'message' => 'Mock mode aktif'];
+            // Mock mode'da başarılı sonuç döndür
+            return [
+                'success' => true,
+                'message' => 'Mock mode: Batch işlemi tamamlandı (simülasyon)',
+                'data' => [
+                    'batchRequestId' => $batchRequestId,
+                    'status' => 'COMPLETED',
+                    'createdItemCount' => rand(1, 10),
+                    'failedItemCount' => 0,
+                    'items' => []
+                ]
+            ];
         }
-        return ['success' => false, 'message' => 'Not implemented'];
+        
+        try {
+            $response = $this->request('get', "/integration/product/sellers/{$this->supplierId}/products/batch-requests/{$batchRequestId}");
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                return [
+                    'success' => true,
+                    'data' => $data
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => 'Batch sonucu alınamadı',
+                'error' => $response->body()
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Bir hata oluştu: ' . $e->getMessage()
+            ];
+        }
     }
 
     public function filterProducts($filters = [])

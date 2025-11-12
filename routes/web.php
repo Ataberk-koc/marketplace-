@@ -124,6 +124,8 @@ Route::middleware(['auth', 'verified.active', 'admin'])->prefix('admin')->name('
         Route::post('/product-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'saveProductMapping'])->name('save-product-mapping');
         Route::delete('/product-mapping/{mapping}', [App\Http\Controllers\Admin\TrendyolController::class, 'deleteProductMapping'])->name('delete-product-mapping');
         
+        // ÜRÜN GÖNDERİMİ
+        Route::post('/send-single-product/{mapping}', [App\Http\Controllers\Admin\TrendyolController::class, 'sendSingleProduct'])->name('send-single-product');
         Route::post('/bulk-send', [App\Http\Controllers\Admin\TrendyolController::class, 'bulkSendProducts'])->name('bulk-send');
         Route::post('/bulk-update-inventory', [App\Http\Controllers\Admin\TrendyolController::class, 'bulkUpdateInventory'])->name('bulk-update-inventory');
         Route::post('/bulk-delete', [App\Http\Controllers\Admin\TrendyolController::class, 'bulkDeleteProducts'])->name('bulk-delete');

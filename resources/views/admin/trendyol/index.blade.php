@@ -33,23 +33,25 @@
             </div>
         </div>
         <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6 class="card-title">Bekleyen Gönderim</h6>
+                    <h2 class="mb-0">{{ $stats['mapped_products'] }}</h2>
+                    <small>Eşleştirilmiş, henüz gönderilmemiş</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
             <div class="card bg-success text-white">
                 <div class="card-body">
-                    <h6 class="card-title">Eşleştirilmiş Marka</h6>
-                    <h2 class="mb-0">{{ $stats['mapped_brands'] }} / {{ $stats['total_brands'] }}</h2>
+                    <h6 class="card-title">Gönderildi</h6>
+                    <h2 class="mb-0">{{ $stats['sent_products'] }}</h2>
+                    <small>Trendyol'a gönderildi</small>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card bg-info text-white">
-                <div class="card-body">
-                    <h6 class="card-title">Eşleştirilmiş Kategori</h6>
-                    <h2 class="mb-0">{{ $stats['mapped_categories'] }} / {{ $stats['total_categories'] }}</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-warning text-dark">
                 <div class="card-body">
                     <h6 class="card-title">Trendyol Kategori</h6>
                     <h2 class="mb-0">{{ $stats['trendyol_categories'] }}</h2>
@@ -102,12 +104,30 @@
                     <h5 class="mb-0"><i class="bi bi-upload"></i> 2. Toplu Ürün Gönderimi</h5>
                 </div>
                 <div class="card-body">
-                    <p>Seçili ürünleri Trendyol'a gönder:</p>
-                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#bulkSendModal">
-                        <i class="bi bi-cloud-upload"></i> Toplu Gönder
-                    </button>
-                    <a href="{{ route('admin.products.index') }}" class="btn btn-outline-primary">
-                        <i class="bi bi-box"></i> Ürünlere Git
+                    <p>Eşleştirilmiş tüm ürünleri Trendyol'a gönder:</p>
+                    <div class="mb-3">
+                        <span class="badge bg-warning text-dark me-2">
+                            {{ \App\Models\ProductTrendyolMapping::where('status', 'pending')->count() }} ürün gönderilmeye hazır
+                        </span>
+                        <span class="badge bg-success">
+                            {{ \App\Models\ProductTrendyolMapping::where('status', 'sent')->count() }} ürün gönderildi
+                        </span>
+                    </div>
+                    @if(\App\Models\ProductTrendyolMapping::where('status', 'pending')->count() > 0)
+                        <form action="{{ route('admin.trendyol.bulk-send') }}" method="POST" 
+                              onsubmit="return confirm('{{ \App\Models\ProductTrendyolMapping::where('status', 'pending')->count() }} ürünü Trendyol\'a göndermek istediğinize emin misiniz?')">
+                            @csrf
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-cloud-upload"></i> Hepsini Gönder
+                            </button>
+                        </form>
+                    @else
+                        <div class="alert alert-info mb-0">
+                            <i class="bi bi-info-circle"></i> Tüm eşleştirilmiş ürünler gönderildi.
+                        </div>
+                    @endif
+                    <a href="{{ route('admin.trendyol.product-mapping') }}" class="btn btn-outline-primary mt-2">
+                        <i class="bi bi-link-45deg"></i> Ürün Eşleştir
                     </a>
                 </div>
             </div>
@@ -156,31 +176,6 @@
                 </button>
             </div>
             <div id="batchResult" class="mt-3"></div>
-        </div>
-    </div>
-</div>
-
-<!-- Toplu Gönderim Modal -->
-<div class="modal fade" id="bulkSendModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form action="{{ route('admin.trendyol.bulk-send') }}" method="POST">
-                @csrf
-                <div class="modal-header">
-                    <h5 class="modal-title">Toplu Ürün Gönderimi</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Ürün ID'lerini virgülle ayırarak girin:</p>
-                    <textarea name="product_ids_text" class="form-control" rows="5" 
-                              placeholder="Örnek: 1,2,3,4,5"></textarea>
-                    <small class="text-muted">En fazla 1000 ürün gönderebilirsiniz</small>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                    <button type="submit" class="btn btn-success">Gönder</button>
-                </div>
-            </form>
         </div>
     </div>
 </div>

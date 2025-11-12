@@ -15,11 +15,16 @@ class ProductTrendyolMapping extends Model
         'trendyol_brand_name',
         'attribute_mappings',
         'is_active',
+        'trendyol_product_id',
+        'batch_request_id',
+        'sent_at',
+        'status',
     ];
 
     protected $casts = [
         'attribute_mappings' => 'array',
         'is_active' => 'boolean',
+        'sent_at' => 'datetime',
     ];
 
     /**
