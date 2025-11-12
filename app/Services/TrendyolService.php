@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Log;
 /**
  * Trendyol API ile entegrasyon servisi
  * Trendyol Marketplace API dokümantasyonu: https://developers.trendyol.com
+ * 
+ * Base URL (Production): https://api.trendyol.com/sapigw
+ * Base URL (Stage): https://stageapi.trendyol.com/stagesapigw
  */
 class TrendyolService
 {
@@ -18,21 +21,79 @@ class TrendyolService
 
     public function __construct()
     {
-        $this->apiUrl = config('services.trendyol.api_url');
+        // Production veya Stage ortamı
+        $isProduction = config('services.trendyol.environment', 'production') === 'production';
+        
+        $this->apiUrl = $isProduction 
+            ? 'https://api.trendyol.com/sapigw'
+            : 'https://stageapi.trendyol.com/stagesapigw';
+            
         $this->supplierId = config('services.trendyol.supplier_id');
         $this->apiKey = config('services.trendyol.api_key');
         $this->apiSecret = config('services.trendyol.api_secret');
     }
 
     /**
-     * Trendyol marka listesini çeker
-     * GET /brands
+     * İade ve Sevkiyat Adres Bilgileri
+     * GET /integration/sellers/{sellerId}/addresses
+     */
+    public function getSuppliersAddresses()
+    {
+        try {
+            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+                ->get("{$this->apiUrl}/integration/sellers/{$this->supplierId}/addresses");
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data' => $response->json()
+                ];
+            }
+
+            Log::error('Trendyol getSuppliersAddresses error', ['response' => $response->body()]);
+            return [
+                'success' => false,
+                'message' => 'Adres bilgileri alınamadı',
+                'error' => $response->body()
+            ];
+        } catch (\Exception $e) {
+            Log::error('Trendyol getSuppliersAddresses exception', ['error' => $e->getMessage()]);
+            return [
+                'success' => false,
+                'message' => 'Bir hata oluştu: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Trendyol Kargo Şirketleri Listesi
+     * Bu bilgi genellikle Trendyol dökümanından alınır (statik)
+     */
+    public function getProviders()
+    {
+        // Trendyol kargo şirketleri ID listesi (dökümanından alınmalı)
+        return [
+            'success' => true,
+            'data' => [
+                ['id' => 10, 'name' => 'Yurtiçi Kargo'],
+                ['id' => 4, 'name' => 'Aras Kargo'],
+                ['id' => 5, 'name' => 'Sürat Kargo'],
+                ['id' => 7, 'name' => 'MNG Kargo'],
+                ['id' => 12, 'name' => 'PTT Kargo'],
+                ['id' => 3, 'name' => 'UPS Kargo'],
+            ]
+        ];
+    }
+
+    /**
+     * Trendyol Marka Listesi
+     * GET /integration/product/brands
      */
     public function getBrands()
     {
         try {
             $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
-                ->get("{$this->apiUrl}/brands");
+                ->get("{$this->apiUrl}/integration/product/brands");
 
             if ($response->successful()) {
                 return [
@@ -57,14 +118,14 @@ class TrendyolService
     }
 
     /**
-     * Trendyol kategori listesini çeker
-     * GET /product-categories
+     * Trendyol Kategori Listesi (Ağaç yapısı)
+     * GET /integration/product/product-categories
      */
     public function getCategories()
     {
         try {
             $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
-                ->get("{$this->apiUrl}/product-categories");
+                ->get("{$this->apiUrl}/integration/product/product-categories");
 
             if ($response->successful()) {
                 return [
@@ -89,14 +150,14 @@ class TrendyolService
     }
 
     /**
-     * Belirli bir kategoriye ait öznitelikleri çeker
-     * GET /product-categories/{categoryId}/attributes
+     * Trendyol Kategori - Özellik Listesi
+     * GET /integration/product/product-categories/{categoryId}/attributes
      */
     public function getCategoryAttributes($categoryId)
     {
         try {
             $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
-                ->get("{$this->apiUrl}/product-categories/{$categoryId}/attributes");
+                ->get("{$this->apiUrl}/integration/product/product-categories/{$categoryId}/attributes");
 
             if ($response->successful()) {
                 return [
@@ -121,9 +182,246 @@ class TrendyolService
     }
 
     /**
+     * Ürün Aktarma
+     * POST /integration/product/sellers/{sellerId}/products
+     */
+    public function createProducts($productData)
+    {
+        try {
+            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+                ->timeout(30)
+                ->post("{$this->apiUrl}/integration/product/sellers/{$this->supplierId}/products", [
+                    'items' => is_array($productData[0] ?? null) ? $productData : [$productData]
+                ]);
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data' => $response->json()
+                ];
+            }
+
+            Log::error('Trendyol createProducts error', [
+                'product' => $productData,
+                'response' => $response->body()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Ürün gönderilemedi',
+                'error' => $response->json()
+            ];
+        } catch (\Exception $e) {
+            Log::error('Trendyol createProducts exception', ['error' => $e->getMessage()]);
+            return [
+                'success' => false,
+                'message' => 'Bir hata oluştu: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Ürün Bilgisi Güncelleme
+     * PUT /integration/product/sellers/{sellerId}/products
+     */
+    public function updateProduct($productData)
+    {
+        try {
+            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+                ->timeout(30)
+                ->put("{$this->apiUrl}/integration/product/sellers/{$this->supplierId}/products", [
+                    'items' => is_array($productData[0] ?? null) ? $productData : [$productData]
+                ]);
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data' => $response->json()
+                ];
+            }
+
+            Log::error('Trendyol updateProduct error', [
+                'product' => $productData,
+                'response' => $response->body()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Ürün güncellenemedi',
+                'error' => $response->json()
+            ];
+        } catch (\Exception $e) {
+            Log::error('Trendyol updateProduct exception', ['error' => $e->getMessage()]);
+            return [
+                'success' => false,
+                'message' => 'Bir hata oluştu: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Stok ve Fiyat Güncelleme
+     * POST /integration/inventory/sellers/{sellerId}/products/price-and-inventory
+     */
+    public function updatePriceAndInventory($items)
+    {
+        try {
+            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+                ->timeout(30)
+                ->post("{$this->apiUrl}/integration/inventory/sellers/{$this->supplierId}/products/price-and-inventory", [
+                    'items' => $items
+                ]);
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data' => $response->json()
+                ];
+            }
+
+            Log::error('Trendyol updatePriceAndInventory error', [
+                'items' => $items,
+                'response' => $response->body()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Stok/Fiyat güncellenemedi',
+                'error' => $response->json()
+            ];
+        } catch (\Exception $e) {
+            Log::error('Trendyol updatePriceAndInventory exception', ['error' => $e->getMessage()]);
+            return [
+                'success' => false,
+                'message' => 'Bir hata oluştu: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Ürün Silme
+     * DELETE /integration/product/sellers/{sellerId}/products
+     */
+    public function deleteProducts($barcodes)
+    {
+        try {
+            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+                ->delete("{$this->apiUrl}/integration/product/sellers/{$this->supplierId}/products", [
+                    'barcodes' => is_array($barcodes) ? $barcodes : [$barcodes]
+                ]);
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data' => $response->json()
+                ];
+            }
+
+            Log::error('Trendyol deleteProducts error', [
+                'barcodes' => $barcodes,
+                'response' => $response->body()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Ürün silinemedi',
+                'error' => $response->json()
+            ];
+        } catch (\Exception $e) {
+            Log::error('Trendyol deleteProducts exception', ['error' => $e->getMessage()]);
+            return [
+                'success' => false,
+                'message' => 'Bir hata oluştu: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Toplu İşlem Kontrolü
+     * GET /integration/product/sellers/{sellerId}/products/batch-requests/{batchRequestId}
+     */
+    public function getBatchRequestResult($batchRequestId)
+    {
+        try {
+            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+                ->get("{$this->apiUrl}/integration/product/sellers/{$this->supplierId}/products/batch-requests/{$batchRequestId}");
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data' => $response->json()
+                ];
+            }
+
+            Log::error('Trendyol getBatchRequestResult error', ['response' => $response->body()]);
+            return [
+                'success' => false,
+                'message' => 'Toplu işlem durumu alınamadı',
+                'error' => $response->body()
+            ];
+        } catch (\Exception $e) {
+            Log::error('Trendyol getBatchRequestResult exception', ['error' => $e->getMessage()]);
+            return [
+                'success' => false,
+                'message' => 'Bir hata oluştu: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Ürün Filtreleme
+     * GET /integration/product/sellers/{sellerId}/products
+     */
+    public function filterProducts($filters = [])
+    {
+        try {
+            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+                ->get("{$this->apiUrl}/integration/product/sellers/{$this->supplierId}/products", $filters);
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data' => $response->json()
+                ];
+            }
+
+            Log::error('Trendyol filterProducts error', ['response' => $response->body()]);
+            return [
+                'success' => false,
+                'message' => 'Ürünler filtrelenemedi',
+                'error' => $response->body()
+            ];
+        } catch (\Exception $e) {
+            Log::error('Trendyol filterProducts exception', ['error' => $e->getMessage()]);
+            return [
+                'success' => false,
+                'message' => 'Bir hata oluştu: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Trendyol kategori listesini çeker (Eski metod - geriye uyumluluk için)
+     * @deprecated Use getCategories() instead
+     */
+    public function getCategoryTree()
+    {
+        return $this->getCategories();
+    }
+
+    /**
+     * Ürünü Trendyol'a gönderir (Eski metod - geriye uyumluluk için)
+     * @deprecated Use createProducts() instead
+     */
+    public function sendProduct($productData)
+    {
+        return $this->createProducts($productData);
+    }
+
+    /**
      * Beden/Özellik listesini çeker (Size attributes)
      * Not: Trendyol'da bedenler kategori bazlı attribute olarak gelir
-     * Bu metot basitleştirilmiş bir örnektir
+     * Bu metod basitleştirilmiş bir örnektir
      */
     public function getSizeAttributes($categoryId = null)
     {
@@ -160,80 +458,15 @@ class TrendyolService
     }
 
     /**
-     * Trendyol'a ürün gönderir
-     * POST /suppliers/{supplierId}/products
-     */
-    public function sendProduct($productData)
-    {
-        try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
-                ->post("{$this->apiUrl}/suppliers/{$this->supplierId}/products", [
-                    'items' => [$productData]
-                ]);
-
-            if ($response->successful()) {
-                return [
-                    'success' => true,
-                    'data' => $response->json()
-                ];
-            }
-
-            Log::error('Trendyol sendProduct error', [
-                'product' => $productData,
-                'response' => $response->body()
-            ]);
-
-            return [
-                'success' => false,
-                'message' => 'Ürün gönderilemedi',
-                'error' => $response->json()
-            ];
-        } catch (\Exception $e) {
-            Log::error('Trendyol sendProduct exception', [
-                'product' => $productData,
-                'error' => $e->getMessage()
-            ]);
-
-            return [
-                'success' => false,
-                'message' => 'Bir hata oluştu: ' . $e->getMessage()
-            ];
-        }
-    }
-
-    /**
-     * Trendyol'dan ürün listesini çeker
-     * GET /suppliers/{supplierId}/products
+     * Trendyol'dan ürün listesini çeker (Eski metod - geriye uyumluluk için)
+     * @deprecated Use filterProducts() instead
      */
     public function getProducts($page = 0, $size = 50)
     {
-        try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
-                ->get("{$this->apiUrl}/suppliers/{$this->supplierId}/products", [
-                    'page' => $page,
-                    'size' => $size
-                ]);
-
-            if ($response->successful()) {
-                return [
-                    'success' => true,
-                    'data' => $response->json()
-                ];
-            }
-
-            Log::error('Trendyol getProducts error', ['response' => $response->body()]);
-            return [
-                'success' => false,
-                'message' => 'Ürünler alınamadı',
-                'error' => $response->body()
-            ];
-        } catch (\Exception $e) {
-            Log::error('Trendyol getProducts exception', ['error' => $e->getMessage()]);
-            return [
-                'success' => false,
-                'message' => 'Bir hata oluştu: ' . $e->getMessage()
-            ];
-        }
+        return $this->filterProducts([
+            'page' => $page,
+            'size' => $size
+        ]);
     }
 
     /**
