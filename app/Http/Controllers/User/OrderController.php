@@ -72,8 +72,22 @@ class OrderController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            // Teslimat adresi alanları
+            'shipping_name' => 'required|string|max:255',
+            'shipping_phone' => 'required|string|max:20',
             'shipping_address' => 'required|string',
+            'shipping_city' => 'required|string|max:100',
+            'shipping_state' => 'required|string|max:100',
+            'shipping_zip' => 'required|string|max:20',
+            
+            // Fatura adresi alanları (opsiyonel)
+            'billing_name' => 'nullable|string|max:255',
+            'billing_phone' => 'nullable|string|max:20',
             'billing_address' => 'nullable|string',
+            'billing_city' => 'nullable|string|max:100',
+            'billing_state' => 'nullable|string|max:100',
+            'billing_zip' => 'nullable|string|max:20',
+            
             'payment_method' => 'required|string',
             'notes' => 'nullable|string',
         ]);
@@ -95,6 +109,32 @@ class OrderController extends Controller
             $shippingCost = 25; // Sabit kargo ücreti
             $total = $subtotal + $tax + $shippingCost;
 
+            // Teslimat adresini formatla
+            $shippingAddress = sprintf(
+                "%s\n%s\n%s, %s %s\nTelefon: %s",
+                $request->shipping_name,
+                $request->shipping_address,
+                $request->shipping_city,
+                $request->shipping_state,
+                $request->shipping_zip,
+                $request->shipping_phone
+            );
+
+            // Fatura adresi - eğer girilmemişse teslimat adresini kullan
+            if ($request->filled('billing_address')) {
+                $billingAddress = sprintf(
+                    "%s\n%s\n%s, %s %s\nTelefon: %s",
+                    $request->billing_name,
+                    $request->billing_address,
+                    $request->billing_city,
+                    $request->billing_state,
+                    $request->billing_zip,
+                    $request->billing_phone
+                );
+            } else {
+                $billingAddress = $shippingAddress;
+            }
+
             $order = Order::create([
                 'user_id' => auth()->id(),
                 'status' => 'pending',
@@ -104,8 +144,8 @@ class OrderController extends Controller
                 'total' => $total,
                 'payment_method' => $request->payment_method,
                 'payment_status' => 'pending',
-                'shipping_address' => $request->shipping_address,
-                'billing_address' => $request->billing_address ?? $request->shipping_address,
+                'shipping_address' => $shippingAddress,
+                'billing_address' => $billingAddress,
                 'notes' => $request->notes,
             ]);
 

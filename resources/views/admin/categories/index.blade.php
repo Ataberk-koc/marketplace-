@@ -34,11 +34,14 @@
                         </td>
                         <td>
                             <div class="btn-group btn-group-sm">
+                                <a href="{{ route('admin.categories.mapping', $category) }}" class="btn btn-outline-info" title="Trendyol Eşleştir">
+                                    <i class="bi bi-link-45deg"></i>
+                                </a>
                                 <button type="button" class="btn btn-outline-primary" 
                                         onclick="editCategory({{ $category->id }}, '{{ $category->name }}', '{{ $category->slug }}')">
                                     <i class="bi bi-pencil"></i>
                                 </button>
-                                <form action="{{ route('admin.categories.destroy', $category) }}" method="POST" 
+                                <form action="{{ route('admin.categories.destroy', $category) }}" method="POST" class="d-inline"
                                       onsubmit="return confirm('Bu kategoriyi silmek istediğinizden emin misiniz?')">
                                     @csrf
                                     @method('DELETE')

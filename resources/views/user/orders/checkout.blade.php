@@ -6,7 +6,7 @@
 <div class="container my-5">
     <h1 class="mb-4"><i class="bi bi-credit-card"></i> Ödeme</h1>
 
-    <form action="{{ route('user.orders.process') }}" method="POST">
+    <form action="{{ route('user.orders.store') }}" method="POST">
         @csrf
         
         <div class="row">

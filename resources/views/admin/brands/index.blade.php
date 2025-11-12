@@ -50,9 +50,21 @@
                         @endif
                     </td>
                     <td>
-                        <button class="btn btn-sm btn-primary">
-                            <i class="bi bi-pencil"></i>
-                        </button>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{{ route('admin.brands.mapping', $brand) }}" class="btn btn-info" title="Trendyol Eşleştir">
+                                <i class="bi bi-link-45deg"></i>
+                            </a>
+                            <button class="btn btn-primary" onclick="editBrand({{ $brand->id }}, '{{ $brand->name }}', '{{ $brand->slug }}')">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <form action="{{ route('admin.brands.destroy', $brand) }}" method="POST" class="d-inline" onsubmit="return confirm('Markayı silmek istediğinizden emin misiniz?')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 @endforeach

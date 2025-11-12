@@ -154,6 +154,13 @@ class CategoryController extends Controller
      */
     public function saveMapping(Request $request, Category $category)
     {
+        // Eğer boş gönderilmişse eşleştirmeyi kaldır
+        if (empty($request->trendyol_category_id)) {
+            CategoryMapping::where('category_id', $category->id)->delete();
+            return redirect()->route('admin.categories.index')
+                ->with('success', 'Kategori eşleştirmesi kaldırıldı!');
+        }
+
         $request->validate([
             'trendyol_category_id' => 'required|exists:trendyol_categories,id',
         ]);

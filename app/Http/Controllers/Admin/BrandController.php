@@ -141,6 +141,13 @@ class BrandController extends Controller
      */
     public function saveMapping(Request $request, Brand $brand)
     {
+        // Eğer boş gönderilmişse eşleştirmeyi kaldır
+        if (empty($request->trendyol_brand_id)) {
+            BrandMapping::where('brand_id', $brand->id)->delete();
+            return redirect()->route('admin.brands.index')
+                ->with('success', 'Marka eşleştirmesi kaldırıldı!');
+        }
+
         $request->validate([
             'trendyol_brand_id' => 'required|exists:trendyol_brands,id',
         ]);
