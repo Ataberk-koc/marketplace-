@@ -108,6 +108,16 @@ Route::middleware(['auth', 'verified.active', 'admin'])->prefix('admin')->name('
         Route::get('/', [App\Http\Controllers\Admin\TrendyolController::class, 'index'])->name('index');
         Route::post('/sync-brands', [App\Http\Controllers\Admin\TrendyolController::class, 'syncBrands'])->name('sync-brands');
         Route::post('/sync-categories', [App\Http\Controllers\Admin\TrendyolController::class, 'syncCategories'])->name('sync-categories');
+        
+        // Manuel Eşleştirme Routes
+        Route::get('/brand-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'brandMapping'])->name('brand-mapping');
+        Route::post('/brand-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'saveBrandMapping'])->name('save-brand-mapping');
+        Route::delete('/brand-mapping/{mapping}', [App\Http\Controllers\Admin\TrendyolController::class, 'deleteBrandMapping'])->name('delete-brand-mapping');
+        
+        Route::get('/category-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'categoryMapping'])->name('category-mapping');
+        Route::post('/category-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'saveCategoryMapping'])->name('save-category-mapping');
+        Route::delete('/category-mapping/{mapping}', [App\Http\Controllers\Admin\TrendyolController::class, 'deleteCategoryMapping'])->name('delete-category-mapping');
+        
         Route::post('/bulk-send', [App\Http\Controllers\Admin\TrendyolController::class, 'bulkSendProducts'])->name('bulk-send');
         Route::post('/bulk-update-inventory', [App\Http\Controllers\Admin\TrendyolController::class, 'bulkUpdateInventory'])->name('bulk-update-inventory');
         Route::post('/bulk-delete', [App\Http\Controllers\Admin\TrendyolController::class, 'bulkDeleteProducts'])->name('bulk-delete');

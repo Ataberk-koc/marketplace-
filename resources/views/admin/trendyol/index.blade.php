@@ -58,27 +58,37 @@
         </div>
     </div>
 
-    <!-- Senkronizasyon -->
+    <!-- Senkronizasyon ve Eşleştirme -->
     <div class="row mb-4">
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-arrow-repeat"></i> Veri Senkronizasyonu</h5>
+                    <h5 class="mb-0"><i class="bi bi-arrow-repeat"></i> 1. Veri Senkronizasyonu</h5>
                 </div>
                 <div class="card-body">
-                    <p>Trendyol'dan marka ve kategori bilgilerini çekin:</p>
+                    <p class="mb-3">Trendyol'dan marka ve kategori bilgilerini çekin:</p>
                     <form action="{{ route('admin.trendyol.sync-brands') }}" method="POST" class="d-inline">
                         @csrf
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary mb-2">
                             <i class="bi bi-tags"></i> Markaları Senkronize Et
                         </button>
                     </form>
                     <form action="{{ route('admin.trendyol.sync-categories') }}" method="POST" class="d-inline">
                         @csrf
-                        <button type="submit" class="btn btn-info">
+                        <button type="submit" class="btn btn-info mb-2">
                             <i class="bi bi-folder"></i> Kategorileri Senkronize Et
                         </button>
                     </form>
+                    
+                    <hr>
+                    
+                    <p class="text-muted mb-2"><small><i class="fas fa-info-circle"></i> Senkronizasyondan sonra manuel eşleştirme yapın:</small></p>
+                    <a href="{{ route('admin.trendyol.brand-mapping') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-link"></i> Marka Eşleştir
+                    </a>
+                    <a href="{{ route('admin.trendyol.category-mapping') }}" class="btn btn-outline-success btn-sm">
+                        <i class="fas fa-sitemap"></i> Kategori Eşleştir
+                    </a>
                 </div>
             </div>
         </div>
@@ -86,7 +96,7 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="bi bi-upload"></i> Toplu Ürün Gönderimi</h5>
+                    <h5 class="mb-0"><i class="bi bi-upload"></i> 2. Toplu Ürün Gönderimi</h5>
                 </div>
                 <div class="card-body">
                     <p>Seçili ürünleri Trendyol'a gönder:</p>

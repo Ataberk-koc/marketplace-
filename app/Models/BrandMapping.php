@@ -12,6 +12,7 @@ class BrandMapping extends Model
     protected $fillable = [
         'brand_id',
         'trendyol_brand_id',
+        'trendyol_brand_name',
         'is_active',
     ];
 

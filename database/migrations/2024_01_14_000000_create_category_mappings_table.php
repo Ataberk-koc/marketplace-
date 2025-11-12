@@ -15,7 +15,8 @@ return new class extends Migration
         Schema::create('category_mappings', function (Blueprint $table) {
             $table->id();
             $table->foreignId('category_id')->constrained()->onDelete('cascade'); // Bizim kategori
-            $table->foreignId('trendyol_category_id')->constrained()->onDelete('cascade'); // Trendyol kategori
+            $table->foreignId('trendyol_category_id')->constrained()->onDelete('cascade'); // Trendyol kategori (Laravel ID)
+            $table->string('trendyol_category_name')->nullable(); // Trendyol kategori adı (bilgi amaçlı)
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             

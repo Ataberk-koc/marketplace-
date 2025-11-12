@@ -15,7 +15,8 @@ return new class extends Migration
         Schema::create('brand_mappings', function (Blueprint $table) {
             $table->id();
             $table->foreignId('brand_id')->constrained()->onDelete('cascade'); // Bizim marka
-            $table->foreignId('trendyol_brand_id')->constrained()->onDelete('cascade'); // Trendyol marka
+            $table->foreignId('trendyol_brand_id')->constrained()->onDelete('cascade'); // Trendyol marka (Laravel ID)
+            $table->string('trendyol_brand_name')->nullable(); // Trendyol marka adı (bilgi amaçlı)
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             

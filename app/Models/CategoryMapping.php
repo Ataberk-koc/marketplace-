@@ -12,6 +12,7 @@ class CategoryMapping extends Model
     protected $fillable = [
         'category_id',
         'trendyol_category_id',
+        'trendyol_category_name',
         'is_active',
     ];
 

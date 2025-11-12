@@ -249,4 +249,102 @@ class TrendyolController extends Controller
 
         return back()->with('error', 'Ürünler listelenemedi: ' . ($result['message'] ?? 'Bilinmeyen hata'));
     }
+
+    /**
+     * Marka Eşleştirme Sayfası
+     */
+    public function brandMapping()
+    {
+        $localBrands = Brand::with('trendyolMapping')->orderBy('name')->get();
+        $trendyolBrands = TrendyolBrand::orderBy('name')->get();
+        
+        return view('admin.trendyol.brand-mapping', compact('localBrands', 'trendyolBrands'));
+    }
+
+    /**
+     * Marka Eşleştirme Kaydet
+     */
+    public function saveBrandMapping(Request $request)
+    {
+        $request->validate([
+            'brand_id' => 'required|exists:brands,id',
+            'trendyol_brand_id' => 'required|exists:trendyol_brands,id'
+        ]);
+
+        $localBrand = Brand::findOrFail($request->brand_id);
+        $trendyolBrand = TrendyolBrand::findOrFail($request->trendyol_brand_id);
+
+        // BrandMapping tablosuna kaydet
+        // NOT: trendyol_brand_id = Laravel ID (foreign key), trendyol_brand_name = bilgi amaçlı
+        \App\Models\BrandMapping::updateOrCreate(
+            ['brand_id' => $localBrand->id],
+            [
+                'trendyol_brand_id' => $trendyolBrand->id, // Laravel ID kullan (foreign key)
+                'trendyol_brand_name' => $trendyolBrand->name
+            ]
+        );
+
+        return back()->with('success', "\"{$localBrand->name}\" markası \"{$trendyolBrand->name}\" ile eşleştirildi!");
+    }
+
+    /**
+     * Marka Eşleştirme Sil
+     */
+    public function deleteBrandMapping($mappingId)
+    {
+        $mapping = \App\Models\BrandMapping::findOrFail($mappingId);
+        $brandName = $mapping->brand->name ?? 'Bilinmeyen';
+        $mapping->delete();
+
+        return back()->with('success', "\"{$brandName}\" eşleştirmesi silindi!");
+    }
+
+    /**
+     * Kategori Eşleştirme Sayfası
+     */
+    public function categoryMapping()
+    {
+        $localCategories = Category::with('trendyolMapping')->orderBy('name')->get();
+        $trendyolCategories = TrendyolCategory::orderBy('name')->get();
+        
+        return view('admin.trendyol.category-mapping', compact('localCategories', 'trendyolCategories'));
+    }
+
+    /**
+     * Kategori Eşleştirme Kaydet
+     */
+    public function saveCategoryMapping(Request $request)
+    {
+        $request->validate([
+            'category_id' => 'required|exists:categories,id',
+            'trendyol_category_id' => 'required|exists:trendyol_categories,id'
+        ]);
+
+        $localCategory = Category::findOrFail($request->category_id);
+        $trendyolCategory = TrendyolCategory::findOrFail($request->trendyol_category_id);
+
+        // CategoryMapping tablosuna kaydet
+        // NOT: trendyol_category_id = Laravel ID (foreign key), trendyol_category_name = bilgi amaçlı
+        \App\Models\CategoryMapping::updateOrCreate(
+            ['category_id' => $localCategory->id],
+            [
+                'trendyol_category_id' => $trendyolCategory->id, // Laravel ID kullan (foreign key)
+                'trendyol_category_name' => $trendyolCategory->name
+            ]
+        );
+
+        return back()->with('success', "\"{$localCategory->name}\" kategorisi \"{$trendyolCategory->name}\" ile eşleştirildi!");
+    }
+
+    /**
+     * Kategori Eşleştirme Sil
+     */
+    public function deleteCategoryMapping($mappingId)
+    {
+        $mapping = \App\Models\CategoryMapping::findOrFail($mappingId);
+        $categoryName = $mapping->category->name ?? 'Bilinmeyen';
+        $mapping->delete();
+
+        return back()->with('success', "\"{$categoryName}\" eşleştirmesi silindi!");
+    }
 }
