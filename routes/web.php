@@ -102,6 +102,18 @@ Route::middleware(['auth', 'verified.active', 'admin'])->prefix('admin')->name('
     Route::post('/sizes/{size}/mapping', [App\Http\Controllers\Admin\SizeController::class, 'saveMapping'])->name('sizes.save-mapping');
     Route::get('/sizes-bulk-mapping', [App\Http\Controllers\Admin\SizeController::class, 'bulkMapping'])->name('sizes.bulk-mapping');
     Route::post('/sizes-bulk-mapping', [App\Http\Controllers\Admin\SizeController::class, 'saveBulkMapping'])->name('sizes.save-bulk-mapping');
+
+    // Trendyol Yönetimi
+    Route::prefix('trendyol')->name('trendyol.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\TrendyolController::class, 'index'])->name('index');
+        Route::post('/sync-brands', [App\Http\Controllers\Admin\TrendyolController::class, 'syncBrands'])->name('sync-brands');
+        Route::post('/sync-categories', [App\Http\Controllers\Admin\TrendyolController::class, 'syncCategories'])->name('sync-categories');
+        Route::post('/bulk-send', [App\Http\Controllers\Admin\TrendyolController::class, 'bulkSendProducts'])->name('bulk-send');
+        Route::post('/bulk-update-inventory', [App\Http\Controllers\Admin\TrendyolController::class, 'bulkUpdateInventory'])->name('bulk-update-inventory');
+        Route::post('/bulk-delete', [App\Http\Controllers\Admin\TrendyolController::class, 'bulkDeleteProducts'])->name('bulk-delete');
+        Route::get('/batch-status/{batchRequestId}', [App\Http\Controllers\Admin\TrendyolController::class, 'checkBatchStatus'])->name('batch-status');
+        Route::get('/products', [App\Http\Controllers\Admin\TrendyolController::class, 'filterProducts'])->name('products');
+    });
 });
 
 // Seller Routes - Satıcı yetkisi gerekli

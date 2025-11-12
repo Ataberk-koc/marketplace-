@@ -43,7 +43,7 @@ return [
     | API Dokümantasyonu: https://developers.trendyol.com
     */
     'trendyol' => [
-        'api_url' => env('TRENDYOL_API_URL', 'https://api.trendyol.com/sapigw/suppliers'),
+        'environment' => env('TRENDYOL_ENVIRONMENT', 'production'),
         'supplier_id' => env('TRENDYOL_SUPPLIER_ID'),
         'api_key' => env('TRENDYOL_API_KEY'),
         'api_secret' => env('TRENDYOL_API_SECRET'),

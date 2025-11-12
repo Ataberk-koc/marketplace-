@@ -1,0 +1,252 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\Product;
+use App\Models\Brand;
+use App\Models\Category;
+use App\Models\TrendyolBrand;
+use App\Models\TrendyolCategory;
+use App\Services\TrendyolService;
+use Illuminate\Http\Request;
+
+class TrendyolController extends Controller
+{
+    protected $trendyolService;
+
+    public function __construct(TrendyolService $trendyolService)
+    {
+        $this->trendyolService = $trendyolService;
+    }
+
+    /**
+     * Trendyol Yönetim Paneli
+     */
+    public function index()
+    {
+        $stats = [
+            'total_products' => Product::count(),
+            'mapped_brands' => Brand::has('trendyolMapping')->count(),
+            'total_brands' => Brand::count(),
+            'mapped_categories' => Category::has('trendyolMapping')->count(),
+            'total_categories' => Category::count(),
+            'trendyol_brands' => TrendyolBrand::count(),
+            'trendyol_categories' => TrendyolCategory::count(),
+        ];
+
+        return view('admin.trendyol.index', compact('stats'));
+    }
+
+    /**
+     * Trendyol'dan markaları senkronize et
+     */
+    public function syncBrands()
+    {
+        $result = $this->trendyolService->getBrands();
+
+        if (!$result['success']) {
+            return back()->with('error', 'Markalar alınamadı: ' . ($result['message'] ?? 'Bilinmeyen hata'));
+        }
+
+        $brands = $result['data']['brands'] ?? [];
+        $syncedCount = 0;
+
+        foreach ($brands as $brandData) {
+            TrendyolBrand::updateOrCreate(
+                ['trendyol_id' => $brandData['id']],
+                ['name' => $brandData['name']]
+            );
+            $syncedCount++;
+        }
+
+        return back()->with('success', "{$syncedCount} marka senkronize edildi!");
+    }
+
+    /**
+     * Trendyol'dan kategorileri senkronize et
+     */
+    public function syncCategories()
+    {
+        $result = $this->trendyolService->getCategories();
+
+        if (!$result['success']) {
+            return back()->with('error', 'Kategoriler alınamadı: ' . ($result['message'] ?? 'Bilinmeyen hata'));
+        }
+
+        $categories = $result['data']['categories'] ?? [];
+        $syncedCount = $this->syncCategoriesRecursive($categories);
+
+        return back()->with('success', "{$syncedCount} kategori senkronize edildi!");
+    }
+
+    /**
+     * Kategorileri recursive olarak senkronize et
+     */
+    private function syncCategoriesRecursive($categories, $parentId = null)
+    {
+        $count = 0;
+
+        foreach ($categories as $categoryData) {
+            TrendyolCategory::updateOrCreate(
+                ['trendyol_id' => $categoryData['id']],
+                [
+                    'name' => $categoryData['name'],
+                    'parent_id' => $parentId,
+                    'is_leaf' => !isset($categoryData['subCategories']) || empty($categoryData['subCategories'])
+                ]
+            );
+            $count++;
+
+            // Alt kategoriler varsa onları da ekle
+            if (isset($categoryData['subCategories']) && !empty($categoryData['subCategories'])) {
+                $count += $this->syncCategoriesRecursive($categoryData['subCategories'], $categoryData['id']);
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Toplu ürün gönderimi
+     */
+    public function bulkSendProducts(Request $request)
+    {
+        $productIds = $request->input('product_ids', []);
+
+        if (empty($productIds)) {
+            return back()->with('error', 'Lütfen en az bir ürün seçin!');
+        }
+
+        $products = Product::with(['brand.trendyolMapping', 'category.trendyolMapping', 'sizes.trendyolMapping'])
+            ->whereIn('id', $productIds)
+            ->get();
+
+        $productData = [];
+        $errors = [];
+
+        foreach ($products as $product) {
+            // Validasyon kontrolleri
+            if (!$product->brand || !$product->brand->trendyolMapping) {
+                $errors[] = "{$product->name}: Marka eşleştirilmemiş";
+                continue;
+            }
+
+            if (!$product->category || !$product->category->trendyolMapping) {
+                $errors[] = "{$product->name}: Kategori eşleştirilmemiş";
+                continue;
+            }
+
+            $unmappedSizes = [];
+            foreach ($product->sizes as $size) {
+                if (!$size->trendyolMapping) {
+                    $unmappedSizes[] = $size->name;
+                }
+            }
+
+            if (!empty($unmappedSizes)) {
+                $errors[] = "{$product->name}: Bedenler eşleştirilmemiş (" . implode(', ', $unmappedSizes) . ")";
+                continue;
+            }
+
+            // Ürün datasını hazırla
+            $productData[] = $this->trendyolService->formatProductForTrendyol($product);
+        }
+
+        if (!empty($errors)) {
+            return back()->with('error', 'Bazı ürünler gönderilemedi:<br>' . implode('<br>', $errors));
+        }
+
+        if (empty($productData)) {
+            return back()->with('error', 'Gönderilecek ürün bulunamadı!');
+        }
+
+        // Trendyol'a gönder
+        $result = $this->trendyolService->createProducts($productData);
+
+        if ($result['success']) {
+            $batchRequestId = $result['data']['batchRequestId'] ?? null;
+            return back()->with('success', 'Ürünler Trendyol\'a gönderildi! Batch ID: ' . $batchRequestId);
+        }
+
+        return back()->with('error', 'Ürünler gönderilemedi: ' . ($result['message'] ?? 'Bilinmeyen hata'));
+    }
+
+    /**
+     * Toplu stok/fiyat güncelleme
+     */
+    public function bulkUpdateInventory(Request $request)
+    {
+        $request->validate([
+            'updates' => 'required|array',
+            'updates.*.barcode' => 'required|string',
+            'updates.*.quantity' => 'nullable|integer|min:0|max:20000',
+            'updates.*.salePrice' => 'nullable|numeric|min:0',
+            'updates.*.listPrice' => 'nullable|numeric|min:0',
+        ]);
+
+        $result = $this->trendyolService->updatePriceAndInventory($request->updates);
+
+        if ($result['success']) {
+            $batchRequestId = $result['data']['batchRequestId'] ?? null;
+            return back()->with('success', 'Stok/Fiyat güncellendi! Batch ID: ' . $batchRequestId);
+        }
+
+        return back()->with('error', 'Güncelleme başarısız: ' . ($result['message'] ?? 'Bilinmeyen hata'));
+    }
+
+    /**
+     * Toplu ürün silme
+     */
+    public function bulkDeleteProducts(Request $request)
+    {
+        $barcodes = $request->input('barcodes', []);
+
+        if (empty($barcodes)) {
+            return back()->with('error', 'Lütfen en az bir barkod girin!');
+        }
+
+        $result = $this->trendyolService->deleteProducts($barcodes);
+
+        if ($result['success']) {
+            $batchRequestId = $result['data']['batchRequestId'] ?? null;
+            return back()->with('success', 'Ürünler silindi! Batch ID: ' . $batchRequestId);
+        }
+
+        return back()->with('error', 'Silme başarısız: ' . ($result['message'] ?? 'Bilinmeyen hata'));
+    }
+
+    /**
+     * Batch işlem durumu kontrolü
+     */
+    public function checkBatchStatus($batchRequestId)
+    {
+        $result = $this->trendyolService->getBatchRequestResult($batchRequestId);
+
+        if ($result['success']) {
+            return response()->json($result['data']);
+        }
+
+        return response()->json(['error' => $result['message']], 400);
+    }
+
+    /**
+     * Trendyol ürünlerini filtrele/listele
+     */
+    public function filterProducts(Request $request)
+    {
+        $filters = $request->only(['approved', 'onSale', 'barcode', 'startDate', 'endDate', 'page', 'size']);
+
+        $result = $this->trendyolService->filterProducts($filters);
+
+        if ($result['success']) {
+            return view('admin.trendyol.products', [
+                'products' => $result['data']['content'] ?? [],
+                'totalPages' => $result['data']['totalPages'] ?? 1,
+                'currentPage' => $result['data']['page'] ?? 0,
+            ]);
+        }
+
+        return back()->with('error', 'Ürünler listelenemedi: ' . ($result['message'] ?? 'Bilinmeyen hata'));
+    }
+}

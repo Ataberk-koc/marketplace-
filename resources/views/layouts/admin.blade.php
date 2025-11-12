@@ -107,6 +107,11 @@
                                 <i class="bi bi-cart-check"></i> Siparişler
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.trendyol.*') ? 'active' : '' }}" href="{{ route('admin.trendyol.index') }}">
+                                <i class="bi bi-shop"></i> Trendyol Yönetimi
+                            </a>
+                        </li>
                     </ul>
                 </div>
             </nav>

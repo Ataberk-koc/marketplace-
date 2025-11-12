@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Log;
  * Trendyol API ile entegrasyon servisi
  * Trendyol Marketplace API dokümantasyonu: https://developers.trendyol.com
  * 
- * Base URL (Production): https://api.trendyol.com/sapigw
- * Base URL (Stage): https://stageapi.trendyol.com/stagesapigw
+ * Base URL (Production): https://apigw.trendyol.com
+ * Base URL (Stage): https://stageapigw.trendyol.com
  */
 class TrendyolService
 {
@@ -25,12 +25,21 @@ class TrendyolService
         $isProduction = config('services.trendyol.environment', 'production') === 'production';
         
         $this->apiUrl = $isProduction 
-            ? 'https://api.trendyol.com/sapigw'
-            : 'https://stageapi.trendyol.com/stagesapigw';
+            ? 'https://apigw.trendyol.com'
+            : 'https://stageapigw.trendyol.com';
             
         $this->supplierId = config('services.trendyol.supplier_id');
         $this->apiKey = config('services.trendyol.api_key');
         $this->apiSecret = config('services.trendyol.api_secret');
+    }
+
+    /**
+     * HTTP istemcisi oluştur (SSL ayarlarıyla)
+     */
+    protected function http()
+    {
+        return Http::withBasicAuth($this->apiKey, $this->apiSecret)
+            ->withOptions(['verify' => false]); // SSL doğrulamayı kapat (development için)
     }
 
     /**
@@ -40,7 +49,7 @@ class TrendyolService
     public function getSuppliersAddresses()
     {
         try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+            $response = $this->http()
                 ->get("{$this->apiUrl}/integration/sellers/{$this->supplierId}/addresses");
 
             if ($response->successful()) {
@@ -92,7 +101,7 @@ class TrendyolService
     public function getBrands()
     {
         try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+            $response = $this->http()
                 ->get("{$this->apiUrl}/integration/product/brands");
 
             if ($response->successful()) {
@@ -124,7 +133,7 @@ class TrendyolService
     public function getCategories()
     {
         try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+            $response = $this->http()
                 ->get("{$this->apiUrl}/integration/product/product-categories");
 
             if ($response->successful()) {
@@ -156,7 +165,7 @@ class TrendyolService
     public function getCategoryAttributes($categoryId)
     {
         try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+            $response = $this->http()
                 ->get("{$this->apiUrl}/integration/product/product-categories/{$categoryId}/attributes");
 
             if ($response->successful()) {
@@ -188,7 +197,7 @@ class TrendyolService
     public function createProducts($productData)
     {
         try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+            $response = $this->http()
                 ->timeout(30)
                 ->post("{$this->apiUrl}/integration/product/sellers/{$this->supplierId}/products", [
                     'items' => is_array($productData[0] ?? null) ? $productData : [$productData]
@@ -227,7 +236,7 @@ class TrendyolService
     public function updateProduct($productData)
     {
         try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+            $response = $this->http()
                 ->timeout(30)
                 ->put("{$this->apiUrl}/integration/product/sellers/{$this->supplierId}/products", [
                     'items' => is_array($productData[0] ?? null) ? $productData : [$productData]
@@ -266,7 +275,7 @@ class TrendyolService
     public function updatePriceAndInventory($items)
     {
         try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+            $response = $this->http()
                 ->timeout(30)
                 ->post("{$this->apiUrl}/integration/inventory/sellers/{$this->supplierId}/products/price-and-inventory", [
                     'items' => $items
@@ -305,7 +314,7 @@ class TrendyolService
     public function deleteProducts($barcodes)
     {
         try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+            $response = $this->http()
                 ->delete("{$this->apiUrl}/integration/product/sellers/{$this->supplierId}/products", [
                     'barcodes' => is_array($barcodes) ? $barcodes : [$barcodes]
                 ]);
@@ -343,7 +352,7 @@ class TrendyolService
     public function getBatchRequestResult($batchRequestId)
     {
         try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+            $response = $this->http()
                 ->get("{$this->apiUrl}/integration/product/sellers/{$this->supplierId}/products/batch-requests/{$batchRequestId}");
 
             if ($response->successful()) {
@@ -375,7 +384,7 @@ class TrendyolService
     public function filterProducts($filters = [])
     {
         try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+            $response = $this->http()
                 ->get("{$this->apiUrl}/integration/product/sellers/{$this->supplierId}/products", $filters);
 
             if ($response->successful()) {
@@ -516,3 +525,4 @@ class TrendyolService
         return $attributes;
     }
 }
+
