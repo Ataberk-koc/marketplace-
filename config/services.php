@@ -35,4 +35,32 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Trendyol API Configuration
+    |--------------------------------------------------------------------------
+    | Trendyol Marketplace API için gerekli bilgiler
+    | API Dokümantasyonu: https://developers.trendyol.com
+    */
+    'trendyol' => [
+        'api_url' => env('TRENDYOL_API_URL', 'https://api.trendyol.com/sapigw/suppliers'),
+        'supplier_id' => env('TRENDYOL_SUPPLIER_ID'),
+        'api_key' => env('TRENDYOL_API_KEY'),
+        'api_secret' => env('TRENDYOL_API_SECRET'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Netgsm SMS API Configuration
+    |--------------------------------------------------------------------------
+    | Netgsm SMS servisi için gerekli bilgiler
+    | API Dokümantasyonu: https://www.netgsm.com.tr/dokuman/
+    */
+    'netgsm' => [
+        'api_url' => env('NETGSM_API_URL', 'https://api.netgsm.com.tr'),
+        'username' => env('NETGSM_USERNAME'),
+        'password' => env('NETGSM_PASSWORD'),
+        'header' => env('NETGSM_HEADER', 'MARKETPLACE'), // SMS başlığı
+    ],
+
 ];
