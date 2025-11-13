@@ -26,8 +26,8 @@ use Illuminate\Support\Facades\Route;
 
 // Ana sayfa ve genel sayfalar
 Route::get('/', [HomeController::class, 'index'])->name('home');
-Route::get('/products', [HomeController::class, 'products'])->name('products.index');
-Route::get('/products/{slug}', [HomeController::class, 'productShow'])->name('products.show');
+Route::get('/products', [HomeController::class, 'products'])->name('shop.products.index');
+Route::get('/products/{slug}', [HomeController::class, 'productShow'])->name('shop.products.show');
 
 // Test routes - Trendyol API
 Route::get('/test-trendyol-brands', function() {
@@ -140,8 +140,21 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/users/{user}/toggle-active', [AdminUserController::class, 'toggleActive'])->name('users.toggle-active');
     Route::post('/users/{user}/change-role', [AdminUserController::class, 'changeRole'])->name('users.change-role');
 
+    // Opsiyon yönetimi (Seçenekler: Beden, Renk, vb.)
+    Route::resource('options', \App\Http\Controllers\Admin\OptionController::class);
+    Route::post('/options/{option}/toggle-active', [\App\Http\Controllers\Admin\OptionController::class, 'toggleActive'])->name('options.toggle-active');
+    Route::post('/option-values/{value}/toggle-active', [\App\Http\Controllers\Admin\OptionController::class, 'toggleValueActive'])->name('option-values.toggle-active');
+    
     // Ürün yönetimi
-    Route::resource('products', AdminProductController::class);
+    Route::resource('products', AdminProductController::class)->names([
+        'index' => 'products.index',
+        'create' => 'products.create',
+        'store' => 'products.store',
+        'show' => 'products.show',
+        'edit' => 'products.edit',
+        'update' => 'products.update',
+        'destroy' => 'products.destroy'
+    ]);
     Route::post('/products/{product}/toggle-active', [AdminProductController::class, 'toggleActive'])->name('products.toggle-active');
     Route::post('/products/{product}/toggle-featured', [AdminProductController::class, 'toggleFeatured'])->name('products.toggle-featured');
     Route::get('/products/{product}/attributes', [AdminProductController::class, 'attributes'])->name('products.attributes');
@@ -250,7 +263,15 @@ Route::middleware(['auth', 'verified.active', 'seller'])->prefix('seller')->name
     Route::get('/dashboard', [SellerDashboardController::class, 'index'])->name('dashboard');
 
     // Ürün yönetimi
-    Route::resource('products', SellerProductController::class);
+    Route::resource('products', SellerProductController::class)->names([
+        'index' => 'products.index',
+        'create' => 'products.create',
+        'store' => 'products.store',
+        'show' => 'products.show',
+        'edit' => 'products.edit',
+        'update' => 'products.update',
+        'destroy' => 'products.destroy'
+    ]);
     Route::get('/api/attributes-by-category', [SellerProductController::class, 'getAttributesByCategory'])->name('api.attributes-by-category');
 
     // Sipariş yönetimi

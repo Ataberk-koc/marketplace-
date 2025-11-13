@@ -112,6 +112,16 @@ class Product extends Model
     }
 
     /**
+     * Ürün opsiyonları (many-to-many)
+     */
+    public function options()
+    {
+        return $this->belongsToMany(\App\Models\Option::class, 'product_options')
+            ->withPivot('is_required', 'sort_order')
+            ->withTimestamps();
+    }
+
+    /**
      * Varyant özellikleri (renk, beden vb.)
      */
     public function variantAttributes()

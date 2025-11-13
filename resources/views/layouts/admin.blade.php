@@ -103,6 +103,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.options.*') ? 'active' : '' }}" href="{{ route('admin.options.index') }}">
+                                <i class="bi bi-sliders"></i> Opsiyonlar
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('admin.products.*') ? 'active' : '' }}" href="{{ route('admin.products.index') }}">
                                 <i class="bi bi-box-seam"></i> Ürünler
                             </a>
