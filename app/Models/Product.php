@@ -106,6 +106,14 @@ class Product extends Model
     }
 
     /**
+     * Alias for productAttributes (for cleaner code)
+     */
+    public function attributes()
+    {
+        return $this->hasMany(ProductAttribute::class)->orderBy('display_order');
+    }
+
+    /**
      * Ürün varyantları (YENİ SİSTEM)
      */
     public function variants()

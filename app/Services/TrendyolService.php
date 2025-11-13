@@ -9,6 +9,8 @@ use App\Models\CategoryMapping;
 use App\Models\TrendyolAttributeMapping;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\Option;
+use App\Models\OptionValue;
 
 /**
  * Trendyol API ile entegrasyon servisi (Mock Data Destekli)
@@ -1160,6 +1162,127 @@ class TrendyolService
     }
 
     /**
+     * Static Product Attributes için mapping çözümle (Smart Lookup)
+     * ProductAttribute stores Name/Value as TEXT (e.g., "Materyal" = "Pamuk")
+     * We need to find the corresponding OptionValue ID to check mappings
+     * 
+     * @param mixed $productAttributes Product->productAttributes collection
+     * @param int|null $trendyolCategoryId Trendyol category ID
+     * @return array ['success' => bool, 'attributes' => array, 'unmapped' => array]
+     */
+    protected function resolveStaticAttributeMappings($productAttributes, $trendyolCategoryId = null)
+    {
+        if (!$productAttributes || (is_countable($productAttributes) && count($productAttributes) === 0)) {
+            return [
+                'success' => true,
+                'attributes' => [],
+                'unmapped' => []
+            ];
+        }
+
+        $resolvedAttributes = [];
+        $unmappedAttributes = [];
+
+        foreach ($productAttributes as $attribute) {
+            $attributeName = $attribute->name;
+            $attributeValue = $attribute->value;
+
+            // Step 1: Find local Option where name matches
+            $option = Option::where('name', $attributeName)->first();
+
+            if (!$option) {
+                $unmappedAttributes[] = [
+                    'attribute_name' => $attributeName,
+                    'attribute_value' => $attributeValue,
+                    'reason' => 'Option not found'
+                ];
+
+                Log::warning('TrendyolService: Static attribute - Option bulunamadı', [
+                    'attribute_name' => $attributeName,
+                    'attribute_value' => $attributeValue
+                ]);
+
+                continue;
+            }
+
+            // Step 2: Find local OptionValue where value matches
+            $optionValue = OptionValue::where('option_id', $option->id)
+                ->where('value', $attributeValue)
+                ->first();
+
+            if (!$optionValue) {
+                $unmappedAttributes[] = [
+                    'attribute_name' => $attributeName,
+                    'attribute_value' => $attributeValue,
+                    'reason' => 'OptionValue not found'
+                ];
+
+                Log::warning('TrendyolService: Static attribute - OptionValue bulunamadı', [
+                    'option_id' => $option->id,
+                    'option_name' => $attributeName,
+                    'value' => $attributeValue
+                ]);
+
+                continue;
+            }
+
+            // Step 3: Query trendyol_attribute_mappings
+            $mapping = TrendyolAttributeMapping::where('option_id', $option->id)
+                ->where('option_value_id', $optionValue->id)
+                ->where('is_active', true)
+                ->where(function($query) use ($trendyolCategoryId) {
+                    $query->where('trendyol_category_id', $trendyolCategoryId)
+                          ->orWhereNull('trendyol_category_id');
+                })
+                ->orderByRaw('trendyol_category_id IS NULL')
+                ->first();
+
+            if (!$mapping) {
+                $unmappedAttributes[] = [
+                    'attribute_name' => $attributeName,
+                    'attribute_value' => $attributeValue,
+                    'reason' => 'Mapping not found',
+                    'option_id' => $option->id,
+                    'option_value_id' => $optionValue->id
+                ];
+
+                Log::warning('TrendyolService: Static attribute mapping bulunamadı', [
+                    'attribute_name' => $attributeName,
+                    'attribute_value' => $attributeValue,
+                    'option_id' => $option->id,
+                    'option_value_id' => $optionValue->id,
+                    'trendyol_category_id' => $trendyolCategoryId
+                ]);
+
+                continue;
+            }
+
+            // Step 4: Add to resolved attributes
+            $resolvedAttributes[] = [
+                'attributeId' => $mapping->trendyol_attribute_id,
+                'attributeValueId' => $mapping->trendyol_value_id,
+                '_local_attribute_name' => $attributeName,
+                '_local_attribute_value' => $attributeValue
+            ];
+
+            Log::info('TrendyolService: Static attribute mapping çözümlendi', [
+                'attribute_name' => $attributeName,
+                'attribute_value' => $attributeValue,
+                'option_id' => $option->id,
+                'option_value_id' => $optionValue->id,
+                'trendyol_attribute_id' => $mapping->trendyol_attribute_id,
+                'trendyol_value_id' => $mapping->trendyol_value_id
+            ]);
+        }
+
+        return [
+            'success' => count($unmappedAttributes) === 0,
+            'attributes' => $resolvedAttributes,
+            'unmapped' => $unmappedAttributes
+        ];
+    }
+
+    /**
      * Product için Trendyol payload hazırla (mapping kullanarak)
      * 
      * @param Product $product Product model instance (with loaded relationships)
@@ -1191,8 +1314,8 @@ class TrendyolService
             ];
         }
 
-        // 3. Product variants yükle
-        $product->load('variants');
+        // 3. Product variants ve productAttributes yükle
+        $product->load(['variants', 'productAttributes']);
 
         if ($product->variants->isEmpty()) {
             $errors[] = "Product'ta variant bulunamadı (product_id: {$product->id})";
@@ -1203,6 +1326,24 @@ class TrendyolService
             ];
         }
 
+        // 3.5. Static Product Attributes çözümle (Materyal, Yaka Tipi, vb.)
+        $staticAttributeResult = $this->resolveStaticAttributeMappings(
+            $product->productAttributes,
+            $trendyolCategoryId
+        );
+
+        // Static attributes için warning log (hata olarak sayma, sadece bilgilendirme)
+        if (!$staticAttributeResult['success']) {
+            foreach ($staticAttributeResult['unmapped'] as $unmapped) {
+                Log::warning('TrendyolService: Unmapped static attribute', [
+                    'product_id' => $product->id,
+                    'attribute_name' => $unmapped['attribute_name'],
+                    'attribute_value' => $unmapped['attribute_value'],
+                    'reason' => $unmapped['reason']
+                ]);
+            }
+        }
+
         // 4. Her variant için attribute mappings çözümle
         foreach ($product->variants as $variant) {
             // option_values JSON decode
@@ -1210,7 +1351,7 @@ class TrendyolService
                 ? $variant->option_values 
                 : json_decode($variant->option_values, true);
 
-            // Attribute mappings çözümle
+            // Attribute mappings çözümle (variant attributes)
             $attributeResult = $this->resolveAttributeMappings($optionValues, $trendyolCategoryId);
 
             if (!$attributeResult['success']) {
@@ -1219,6 +1360,12 @@ class TrendyolService
                 }
                 continue; // Bu variant'ı atla, diğerlerini dene
             }
+
+            // Merge: Variant attributes + Static Product Attributes
+            $allAttributes = array_merge(
+                $attributeResult['attributes'],
+                $staticAttributeResult['attributes']
+            );
 
             // Trendyol item payload oluştur
             $item = [
@@ -1237,13 +1384,15 @@ class TrendyolService
                 'vatRate' => 10, // KDV oranı (varsayılan %10)
                 'cargoCompanyId' => 10, // Kargo firması (varsayılan: Aras)
                 'images' => $this->prepareProductImages($product),
-                'attributes' => $attributeResult['attributes']
+                'attributes' => $allAttributes
             ];
 
             // Debug için local attribute bilgilerini temizle (API'ye gönderme)
             foreach ($item['attributes'] as &$attr) {
                 unset($attr['_local_option_name']);
                 unset($attr['_local_value_name']);
+                unset($attr['_local_attribute_name']);
+                unset($attr['_local_attribute_value']);
             }
 
             $items[] = $item;
