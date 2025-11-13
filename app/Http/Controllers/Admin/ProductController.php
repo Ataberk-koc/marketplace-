@@ -102,25 +102,58 @@ class ProductController extends Controller
             'images.*' => 'url',
             'is_active' => 'boolean',
             'is_featured' => 'boolean',
+            // Varyantlar
+            'variants' => 'nullable|array',
+            'variants.*.sku' => 'required|string|max:100|distinct',
+            'variants.*.barcode' => 'nullable|string|max:100',
+            'variants.*.attributes' => 'nullable|array',
+            'variants.*.price' => 'required|numeric|min:0',
+            'variants.*.discount_price' => 'nullable|numeric|min:0',
+            'variants.*.stock_quantity' => 'required|integer|min:0',
         ]);
 
-        $product = Product::create([
-            'seller_id' => auth()->id(), // Admin oluşturduğu için kendi ID'si
-            'name' => $request->name,
-            'description' => $request->description,
-            'sku' => $request->sku,
-            'category_id' => $request->category_id,
-            'brand_id' => $request->brand_id,
-            'price' => $request->price,
-            'discount_price' => $request->discount_price,
-            'stock_quantity' => $request->stock_quantity,
-            'images' => $request->images ?? [],
-            'is_active' => $request->boolean('is_active', true),
-            'is_featured' => $request->boolean('is_featured', false),
-        ]);
+        \DB::beginTransaction();
+        try {
+            $product = Product::create([
+                'user_id' => auth()->id(),
+                'name' => $request->name,
+                'description' => $request->description,
+                'sku' => $request->sku,
+                'category_id' => $request->category_id,
+                'brand_id' => $request->brand_id,
+                'price' => $request->price,
+                'discount_price' => $request->discount_price,
+                'stock_quantity' => $request->stock_quantity,
+                'images' => $request->images ?? [],
+                'is_active' => $request->boolean('is_active', true),
+                'is_featured' => $request->boolean('is_featured', false),
+            ]);
 
-        return redirect()->route('admin.products.index')
-            ->with('success', 'Ürün başarıyla oluşturuldu!');
+            // Varyantları kaydet
+            if ($request->filled('variants')) {
+                foreach ($request->variants as $variantData) {
+                    \App\Models\ProductVariant::create([
+                        'product_id' => $product->id,
+                        'sku' => $variantData['sku'],
+                        'barcode' => $variantData['barcode'] ?? null,
+                        'attributes' => $variantData['attributes'] ?? null,
+                        'price' => $variantData['price'],
+                        'discount_price' => $variantData['discount_price'] ?? null,
+                        'stock_quantity' => $variantData['stock_quantity'],
+                        'is_active' => true,
+                    ]);
+                }
+            }
+
+            \DB::commit();
+
+            return redirect()->route('admin.products.index')
+                ->with('success', 'Ürün ve varyantları başarıyla oluşturuldu!');
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return back()->withInput()->withErrors(['error' => 'Ürün kaydedilemedi: ' . $e->getMessage()]);
+        }
     }
 
     /**

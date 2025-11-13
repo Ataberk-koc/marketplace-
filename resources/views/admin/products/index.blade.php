@@ -52,12 +52,18 @@
                         @endif
                     </td>
                     <td>
-                        @if($product->stock > 10)
-                            <span class="badge bg-success">{{ $product->stock }}</span>
-                        @elseif($product->stock > 0)
-                            <span class="badge bg-warning">{{ $product->stock }}</span>
+                        @if($product->variants->count() > 0)
+                            <span class="badge bg-info" title="Varyantlı Ürün">
+                                {{ $product->variants->sum('stock_quantity') }} ({{ $product->variants->count() }} varyant)
+                            </span>
                         @else
-                            <span class="badge bg-danger">{{ $product->stock }}</span>
+                            @if($product->stock > 10)
+                                <span class="badge bg-success">{{ $product->stock }}</span>
+                            @elseif($product->stock > 0)
+                                <span class="badge bg-warning">{{ $product->stock }}</span>
+                            @else
+                                <span class="badge bg-danger">{{ $product->stock }}</span>
+                            @endif
                         @endif
                     </td>
                     <td>{{ $product->seller->name }}</td>
@@ -80,6 +86,13 @@
                                title="Düzenle">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            @if($product->variants->count() > 0)
+                                <a href="{{ route('admin.stock.index', ['search' => $product->name]) }}" 
+                                   class="btn btn-secondary"
+                                   title="Varyant Stokları">
+                                    <i class="bi bi-boxes"></i> ({{ $product->variants->count() }})
+                                </a>
+                            @endif
                             <a href="{{ route('admin.products.attributes', $product) }}" 
                                class="btn btn-success"
                                title="Özellikler">

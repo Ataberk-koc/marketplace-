@@ -95,6 +95,22 @@ class Product extends Model
     }
 
     /**
+     * Ürün varyantları (YENİ SİSTEM)
+     */
+    public function variants()
+    {
+        return $this->hasMany(ProductVariant::class);
+    }
+
+    /**
+     * Aktif varyantlar
+     */
+    public function activeVariants()
+    {
+        return $this->hasMany(ProductVariant::class)->where('is_active', true);
+    }
+
+    /**
      * Varyant özellikleri (renk, beden vb.)
      */
     public function variantAttributes()

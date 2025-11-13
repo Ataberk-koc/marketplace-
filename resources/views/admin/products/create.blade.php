@@ -174,6 +174,15 @@
                         @enderror
                     </div>
 
+                    <!-- Trendyol Kategori Eşleştirme ve Özellikler -->
+                    <div id="trendyol_category_info" style="display:none;">
+                        <div class="alert alert-info mb-2" id="trendyol_category_alert" style="display:none;"></div>
+                        <div id="trendyol_attributes_section" style="display:none;">
+                            <label class="form-label"><i class="bi bi-tags"></i> Trendyol Kategori Özellikleri</label>
+                            <div id="trendyol_attributes_table"></div>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
                         <label for="brand_id" class="form-label">Marka <span class="text-danger">*</span></label>
                         <select class="form-select @error('brand_id') is-invalid @enderror" 
@@ -228,6 +237,27 @@
                         <small class="form-text text-muted d-block">
                             Öne çıkan ürünler ana sayfada gösterilir
                         </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ÜRÜN VARYANTLARI (YENİ) -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-palette"></i> Ürün Varyantları (Renk, Beden vs.)</h5>
+                    <button type="button" class="btn btn-sm btn-light" id="addVariantBtn">
+                        <i class="bi bi-plus-circle"></i> Varyant Ekle
+                    </button>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Ürününüzün farklı renk, beden veya diğer varyasyonları varsa buradan ekleyebilirsiniz. Her varyant için ayrı SKU, barkod, fiyat ve stok girebilirsiniz.</p>
+                    
+                    <div id="variantsContainer">
+                        <!-- Varyantlar buraya eklenecek -->
+                    </div>
+
+                    <div id="noVariantsMessage" class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Henüz varyant eklenmedi. "Varyant Ekle" butonuna tıklayarak başlayın.
                     </div>
                 </div>
             </div>
@@ -309,7 +339,176 @@ $(document).ready(function() {
         placeholder: '-- Marka Seçin --',
         allowClear: true,
         language: 'tr'
+
+        // Trendyol kategori ve attribute entegrasyonu
+        const categoryMappings = @json(\App\Models\CategoryMapping::with('category')->get()->keyBy('category_id'));
+
+        $('#category_id').on('change', function() {
+            const categoryId = $(this).val();
+            $('#trendyol_category_info').hide();
+            $('#trendyol_category_alert').hide();
+            $('#trendyol_attributes_section').hide();
+            $('#trendyol_attributes_table').html('');
+
+            if (!categoryId || !categoryMappings[categoryId]) {
+                $('#trendyol_category_alert').text('Bu kategori için Trendyol eşleştirmesi yok.').show();
+                $('#trendyol_category_info').show();
+                return;
+            }
+
+            // Trendyol kategori ID'si
+            const trendyolCategoryId = categoryMappings[categoryId].trendyol_category_id;
+            const trendyolCategoryName = categoryMappings[categoryId].trendyol_category_name;
+            $('#trendyol_category_alert').html('<b>Trendyol Kategori:</b> ' + trendyolCategoryName + ' <span class="badge bg-secondary">ID: ' + trendyolCategoryId + '</span>').show();
+            $('#trendyol_category_info').show();
+
+            // AJAX ile Trendyol attribute'larını getir
+            $.ajax({
+                url: '/admin/ajax/trendyol-category-attributes/' + trendyolCategoryId,
+                method: 'GET',
+                success: function(res) {
+                    if (res.success && res.attributes.length > 0) {
+                        let html = '<table class="table table-bordered table-sm"><thead><tr><th>Özellik</th><th>Zorunlu</th><th>Varyant</th><th>Değerler (ilk 5)</th></tr></thead><tbody>';
+                        res.attributes.forEach(function(attr) {
+                            html += '<tr>';
+                            html += '<td><b>' + attr.attribute.name + '</b> <br><small>ID: ' + attr.attribute.id + '</small></td>';
+                            html += '<td>' + (attr.attribute.required ? '<span class="badge bg-danger">Evet</span>' : '<span class="badge bg-secondary">Hayır</span>') + '</td>';
+                            html += '<td>' + (attr.attribute.varianter ? '<span class="badge bg-info">Varyant</span>' : '-') + '</td>';
+                            html += '<td>';
+                            if(attr.attributeValues && attr.attributeValues.length > 0) {
+                                html += attr.attributeValues.slice(0,5).map(v => v.name).join(', ');
+                                if(attr.attributeValues.length > 5) html += ' ...';
+                            } else {
+                                html += '-';
+                            }
+                            html += '</td>';
+                            html += '</tr>';
+                        });
+                        html += '</tbody></table>';
+                        $('#trendyol_attributes_table').html(html);
+                        $('#trendyol_attributes_section').show();
+                    } else {
+                        $('#trendyol_attributes_table').html('<div class="alert alert-warning">Bu Trendyol kategorisi için özellik bulunamadı.</div>');
+                        $('#trendyol_attributes_section').show();
+                    }
+                },
+                error: function() {
+                    $('#trendyol_attributes_table').html('<div class="alert alert-danger">Trendyol özellikleri alınamadı!</div>');
+                    $('#trendyol_attributes_section').show();
+                }
+            });
+        });
+
+        // Sayfa yüklendiğinde eski seçim varsa tetikle
+        if($('#category_id').val()) {
+            $('#category_id').trigger('change');
+        }
+
+    // ====== VARYANT YÖNETİMİ ======
+    let variantIndex = 0;
+
+    $('#addVariantBtn').on('click', function() {
+        addVariant();
     });
+
+    function addVariant() {
+        variantIndex++;
+        const html = `
+            <div class="variant-item border rounded p-3 mb-3" data-index="${variantIndex}">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0"><i class="bi bi-tag"></i> Varyant #${variantIndex}</h6>
+                    <button type="button" class="btn btn-sm btn-danger remove-variant-btn">
+                        <i class="bi bi-trash"></i> Sil
+                    </button>
+                </div>
+
+                <div class="row g-3">
+                    <!-- SKU -->
+                    <div class="col-md-4">
+                        <label class="form-label">SKU / Model Kodu <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="variants[${variantIndex}][sku]" required>
+                    </div>
+
+                    <!-- Barkod -->
+                    <div class="col-md-4">
+                        <label class="form-label">Barkod</label>
+                        <input type="text" class="form-control" name="variants[${variantIndex}][barcode]">
+                    </div>
+
+                    <!-- Stok -->
+                    <div class="col-md-4">
+                        <label class="form-label">Stok Miktarı <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" name="variants[${variantIndex}][stock_quantity]" min="0" value="0" required>
+                    </div>
+
+                    <!-- Renk -->
+                    <div class="col-md-3">
+                        <label class="form-label">Renk</label>
+                        <input type="text" class="form-control variant-attr" name="variants[${variantIndex}][attributes][Renk]" placeholder="Kırmızı, Mavi...">
+                    </div>
+
+                    <!-- Beden -->
+                    <div class="col-md-3">
+                        <label class="form-label">Beden</label>
+                        <input type="text" class="form-control variant-attr" name="variants[${variantIndex}][attributes][Beden]" placeholder="S, M, L, XL...">
+                    </div>
+
+                    <!-- Fiyat -->
+                    <div class="col-md-3">
+                        <label class="form-label">Fiyat <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" name="variants[${variantIndex}][price]" step="0.01" min="0" required>
+                    </div>
+
+                    <!-- İndirimli Fiyat -->
+                    <div class="col-md-3">
+                        <label class="form-label">İndirimli Fiyat</label>
+                        <input type="number" class="form-control" name="variants[${variantIndex}][discount_price]" step="0.01" min="0">
+                    </div>
+
+                    <!-- Ekstra Özellikler -->
+                    <div class="col-12">
+                        <div class="border rounded p-2 bg-light">
+                            <small class="text-muted d-block mb-2"><i class="bi bi-info-circle"></i> İsteğe bağlı ekstra özellikler ekleyebilirsiniz:</small>
+                            <div class="extra-attributes-${variantIndex}"></div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary add-extra-attr-btn" data-index="${variantIndex}">
+                                <i class="bi bi-plus"></i> Özellik Ekle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        $('#variantsContainer').append(html);
+        $('#noVariantsMessage').hide();
+    }
+
+    // Varyant silme
+    $(document).on('click', '.remove-variant-btn', function() {
+        $(this).closest('.variant-item').remove();
+        if ($('.variant-item').length === 0) {
+            $('#noVariantsMessage').show();
+        }
+    });
+
+    // Ekstra özellik ekleme
+    $(document).on('click', '.add-extra-attr-btn', function() {
+        const index = $(this).data('index');
+        const attrHtml = `
+            <div class="input-group input-group-sm mb-2">
+                <input type="text" class="form-control" placeholder="Özellik Adı" name="variants[${index}][attributes_keys][]">
+                <input type="text" class="form-control" placeholder="Değer" name="variants[${index}][attributes_values][]">
+                <button type="button" class="btn btn-danger remove-extra-attr-btn"><i class="bi bi-x"></i></button>
+            </div>
+        `;
+        $(`.extra-attributes-${index}`).append(attrHtml);
+    });
+
+    // Ekstra özellik silme
+    $(document).on('click', '.remove-extra-attr-btn', function() {
+        $(this).closest('.input-group').remove();
+    });
+
 });
 
 // Fiyat validasyonu

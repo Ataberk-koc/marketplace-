@@ -72,6 +72,23 @@ Route::get('/test-trendyol-category-attributes/{categoryId}', function($category
     ]);
 });
 
+// AJAX: Trendyol kategori attribute'ları getir (Admin için)
+Route::get('/admin/ajax/trendyol-category-attributes/{trendyolCategoryId}', function($trendyolCategoryId) {
+    $service = new \App\Services\TrendyolService();
+    $result = $service->getCategoryAttributes($trendyolCategoryId);
+    if(isset($result['success']) && $result['success'] && isset($result['data']['categoryAttributes'])) {
+        return response()->json([
+            'success' => true,
+            'attributes' => $result['data']['categoryAttributes'],
+        ]);
+    } else {
+        return response()->json([
+            'success' => false,
+            'message' => 'Trendyol kategori attribute bilgisi alınamadı.'
+        ], 500);
+    }
+})->middleware(['web', 'auth', 'admin']);
+
 // Authentication Routes
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -158,6 +175,16 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/sizes/{size}/mapping', [App\Http\Controllers\Admin\SizeController::class, 'saveMapping'])->name('sizes.save-mapping');
     Route::get('/sizes-bulk-mapping', [App\Http\Controllers\Admin\SizeController::class, 'bulkMapping'])->name('sizes.bulk-mapping');
     Route::post('/sizes-bulk-mapping', [App\Http\Controllers\Admin\SizeController::class, 'saveBulkMapping'])->name('sizes.save-bulk-mapping');
+
+    // Stok Yönetimi
+    Route::prefix('stock')->name('stock.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\StockController::class, 'index'])->name('index');
+        Route::get('/movements/{variant}', [App\Http\Controllers\Admin\StockController::class, 'movements'])->name('movements');
+        Route::get('/create-movement', [App\Http\Controllers\Admin\StockController::class, 'createMovement'])->name('create-movement');
+        Route::post('/store-movement', [App\Http\Controllers\Admin\StockController::class, 'storeMovement'])->name('store-movement');
+        Route::get('/bulk-update', [App\Http\Controllers\Admin\StockController::class, 'bulkUpdate'])->name('bulk-update');
+        Route::post('/bulk-update', [App\Http\Controllers\Admin\StockController::class, 'storeBulkUpdate'])->name('store-bulk-update');
+    });
 
     // Raporlar
     Route::prefix('reports')->name('reports.')->group(function () {
