@@ -131,7 +131,7 @@
             <strong>Önemli:</strong> Trendyol kategorileri hiyerarşik yapıdadır. Ürün gönderirken en alt seviye (leaf) kategori seçilmelidir.
         </div>
 
-        <form action="{{ route('admin.categories.save-mapping', $category) }}" method="POST">
+        <form action="{{ route('admin.categories.save-mapping', $category) }}" method="POST" id="mappingForm" onsubmit="return validateForm()">
             @csrf
             
             <div class="row mb-3">
@@ -181,6 +181,22 @@
 
 @push('scripts')
 <script>
+function validateForm() {
+    const selectElement = document.getElementById('trendyol_category_id');
+    const categoryNameInput = document.getElementById('trendyol_category_name');
+    
+    if (selectElement.value) {
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+        const catName = selectedOption.getAttribute('data-category-name') || selectedOption.text.split(' (ID:')[0];
+        categoryNameInput.value = catName;
+        
+        console.log('Form submit - Category ID:', selectElement.value);
+        console.log('Form submit - Category Name:', categoryNameInput.value);
+    }
+    
+    return true;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('search');
     const selectElement = document.getElementById('trendyol_category_id');
@@ -209,16 +225,27 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Category name'i doldur
         if (selectedOption.value) {
-            categoryNameInput.value = selectedOption.getAttribute('data-category-name') || '';
+            const catName = selectedOption.getAttribute('data-category-name') || selectedOption.text.split(' (ID:')[0];
+            categoryNameInput.value = catName;
+            console.log('Category name set to:', catName); // Debug
         } else {
             categoryNameInput.value = '';
         }
         
         // Leaf kontrolü
-        if (selectedOption.dataset.leaf === 'false') {
+        if (selectedOption.value && selectedOption.dataset.leaf === 'false') {
             alert('Uyarı: Seçtiğiniz kategori son seviye (leaf) kategori değil. Trendyol\'a ürün gönderimi için son seviye kategori seçmeniz gerekmektedir.');
         }
     });
+    
+    // Sayfa yüklendiğinde seçili varsa doldur
+    if (selectElement.value) {
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+        if (selectedOption) {
+            const catName = selectedOption.getAttribute('data-category-name') || selectedOption.text.split(' (ID:')[0];
+            categoryNameInput.value = catName;
+        }
+    }
 });
 });
 </script>

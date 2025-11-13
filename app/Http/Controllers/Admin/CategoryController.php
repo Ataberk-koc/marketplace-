@@ -171,11 +171,26 @@ class CategoryController extends Controller
             'trendyol_category_name' => 'nullable|string',
         ]);
 
+        // Eğer category name boşsa, session'dan çek
+        $categoryName = $request->trendyol_category_name;
+        if (empty($categoryName)) {
+            $trendyolCategories = session('trendyol_categories', []);
+            foreach ($trendyolCategories as $tCat) {
+                $catId = is_array($tCat) ? $tCat['id'] : $tCat->id;
+                if ($catId == $request->trendyol_category_id) {
+                    $categoryName = is_array($tCat) 
+                        ? ($tCat['path'] ?? $tCat['name']) 
+                        : ($tCat->path ?? $tCat->name);
+                    break;
+                }
+            }
+        }
+
         CategoryMapping::updateOrCreate(
             ['category_id' => $category->id],
             [
                 'trendyol_category_id' => $request->trendyol_category_id,
-                'trendyol_category_name' => $request->trendyol_category_name,
+                'trendyol_category_name' => $categoryName ?? 'Kategori Adı Bulunamadı',
                 'is_active' => true
             ]
         );
