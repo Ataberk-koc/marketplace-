@@ -22,16 +22,24 @@ class OptionController extends Controller
 
     public function store(Request $request)
     {
+        // Validate request
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:options,name',
             'type' => 'required|in:select,color,image',
-            'values' => 'required|array|min:1',
-            'values.*' => 'required|string|max:255',
-            'color_codes' => 'array',
+            'values_json' => 'required|string',
         ]);
+
+        // Parse values JSON
+        $valuesData = json_decode($request->values_json, true);
+
+        // Validate values
+        if (!$valuesData || count($valuesData) === 0) {
+            return back()->withErrors(['values_json' => 'En az 1 değer eklemelisiniz!'])->withInput();
+        }
 
         \DB::beginTransaction();
         try {
+            // Create the option
             $option = Option::create([
                 'name' => $request->name,
                 'type' => $request->type,
@@ -39,21 +47,31 @@ class OptionController extends Controller
                 'is_active' => true,
             ]);
 
-            foreach ($request->values as $index => $value) {
+            // Create option values
+            foreach ($valuesData as $index => $valueData) {
                 OptionValue::create([
                     'option_id' => $option->id,
-                    'value' => $value,
-                    'color_code' => $request->color_codes[$index] ?? null,
+                    'value' => $valueData['value'],
+                    'color_code' => $valueData['color_code'] ?? null,
+                    'image' => null, // Images can be uploaded later
                     'sort_order' => $index,
                     'is_active' => true,
                 ]);
             }
 
             \DB::commit();
-            return redirect()->route('admin.options.index')->with('success', 'Opsiyon oluşturuldu!');
+
+            return redirect()->route('admin.options.index')
+                ->with('success', "'{$option->name}' opsiyonu ve " . count($valuesData) . " değer başarıyla oluşturuldu!");
+
         } catch (\Exception $e) {
             \DB::rollBack();
-            return back()->withErrors(['error' => $e->getMessage()]);
+            \Log::error('Option creation failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return back()->withErrors(['error' => 'Opsiyon kaydedilemedi: ' . $e->getMessage()])->withInput();
         }
     }
 
