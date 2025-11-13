@@ -89,6 +89,12 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
+        // Debug için request'i logla
+        \Log::info('Product Store Request', [
+            'all_data' => $request->all(),
+            'variants_count' => is_array($request->variants) ? count($request->variants) : 0
+        ]);
+
         $request->validate([
             'name' => 'required|string|max:255',
             'model_code' => 'required|string|max:100',
@@ -182,11 +188,19 @@ class ProductController extends Controller
 
             \DB::commit();
 
+            \Log::info('Product created successfully', ['product_id' => $product->id, 'variant_count' => count($request->variants)]);
+
             return redirect()->route('admin.products.index')
                 ->with('success', 'Ürün ve varyantları başarıyla oluşturuldu!');
 
         } catch (\Exception $e) {
             \DB::rollBack();
+            
+            \Log::error('Product creation failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return back()->withInput()->withErrors(['error' => 'Ürün kaydedilemedi: ' . $e->getMessage()]);
         }
     }

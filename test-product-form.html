@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Ürün Formu Debug</title>
+</head>
+<body>
+    <h1>Ürün Formu Test</h1>
+    <p>Lütfen şu adımları takip edin:</p>
+    
+    <h2>🔍 Debug Adımları:</h2>
+    <ol>
+        <li><strong>Browser'da sayfayı açın:</strong> <a href="http://127.0.0.1:8000/admin/products/create" target="_blank">http://127.0.0.1:8000/admin/products/create</a></li>
+        <li><strong>F12 tuşuna basarak Developer Tools açın</strong></li>
+        <li><strong>Console sekmesine gidin</strong></li>
+        <li><strong>Formu doldurun:</strong>
+            <ul>
+                <li>Ürün Adı: Test Ürün</li>
+                <li>Model Kodu: TEST-001</li>
+                <li>Kategori: Herhangi birini seçin</li>
+                <li>Marka: Herhangi birini seçin</li>
+            </ul>
+        </li>
+        <li><strong>Satış ve Varyant Bilgileri sekmesine geçin</strong></li>
+        <li><strong>"Varyant Ekle" butonuna tıklayın</strong></li>
+        <li><strong>Varyant bilgilerini doldurun:</strong>
+            <ul>
+                <li>Renk: Siyah</li>
+                <li>Beden: M</li>
+                <li>Barkod: 123456789</li>
+                <li>SKU: TEST-SKU-001</li>
+                <li>Fiyat: 100</li>
+                <li>Stok: 10</li>
+            </ul>
+        </li>
+        <li><strong>"Ürünü Oluştur" butonuna tıklayın</strong></li>
+        <li><strong>Console'da şu logları göreceksiniz:</strong>
+            <ul>
+                <li>"Form submit triggered"</li>
+                <li>"Variant count: 1"</li>
+                <li>"Form is valid, submitting..."</li>
+                <li>Form data entries listesi</li>
+            </ul>
+        </li>
+    </ol>
+
+    <h2>❌ Eğer console'da hiçbir şey görünmüyorsa:</h2>
+    <ul>
+        <li>jQuery yüklenmiş mi kontrol edin (Console'da <code>typeof $</code> yazın, "function" dönmeli)</li>
+        <li>JavaScript hataları var mı bakın (Console'da kırmızı hatalar)</li>
+        <li>Form submit eventi bağlanmış mı test edin</li>
+    </ul>
+
+    <h2>✅ Eğer form gönderilip hiçbir şey olmuyorsa:</h2>
+    <ul>
+        <li>Network sekmesine bakın, POST isteği gidiyor mu?</li>
+        <li>Response ne dönüyor? (200, 302, 422, 500?)</li>
+        <li>Storage/logs/laravel.log dosyasına bakın</li>
+    </ul>
+
+    <h2>🐛 Olası Sorunlar:</h2>
+    <ol>
+        <li><strong>CSRF Token hatası:</strong> Form içinde @csrf var mı kontrol edin</li>
+        <li><strong>Validation hatası:</strong> Tüm required alanlar dolu mu?</li>
+        <li><strong>Route hatası:</strong> admin.products.store route'u tanımlı mı?</li>
+        <li><strong>Middleware hatası:</strong> Admin olarak giriş yapmış mısınız?</li>
+        <li><strong>JavaScript hatası:</strong> Console'da kırmızı hata var mı?</li>
+    </ol>
+
+    <hr>
+    <h3>Hızlı Kontroller:</h3>
+    <pre>
+# Route kontrolü
+php artisan route:list | Select-String "products.store"
+
+# Son 20 satır log
+Get-Content "storage\logs\laravel.log" -Tail 20
+
+# Cache temizle
+php artisan cache:clear
+php artisan config:clear
+php artisan view:clear
+    </pre>
+</body>
+</html>

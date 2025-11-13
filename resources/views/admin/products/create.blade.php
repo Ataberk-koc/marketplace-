@@ -37,8 +37,20 @@
     </a>
 </div>
 
-<form action="{{ route('admin.products.store') }}" method="POST" id="productForm">
+<form action="{{ route('admin.products.store') }}" method="POST" id="productForm" enctype="multipart/form-data">
     @csrf
+
+    @if ($errors->any())
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Hata!</strong> Lütfen aşağıdaki hataları düzeltin:
+            <ul class="mb-0 mt-2">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
     
     <!-- Sekmeler -->
     <ul class="nav nav-tabs mb-3" id="productTabs" role="tablist">
@@ -70,7 +82,7 @@
                             <div class="mb-3">
                                 <label for="name" class="form-label">Ürün Adı <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control @error('name') is-invalid @enderror" 
-                                       id="name" name="name" value="{{ old('name') }}" required>
+                                       id="name" name="name" value="{{ old('name') }}">
                                 @error('name')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -82,7 +94,7 @@
                                 <label for="model_code" class="form-label">Model Kodu <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control @error('model_code') is-invalid @enderror" 
                                        id="model_code" name="model_code" value="{{ old('model_code') }}" 
-                                       placeholder="Örn: TW8323PLSG4" required>
+                                       placeholder="Örn: TW8323PLSG4">
                                 @error('model_code')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -93,7 +105,7 @@
                             <div class="mb-3">
                                 <label for="category_id" class="form-label">Kategori <span class="text-danger">*</span></label>
                                 <select class="form-select @error('category_id') is-invalid @enderror" 
-                                        id="category_id" name="category_id" required>
+                                        id="category_id" name="category_id">
                                     <option value="">-- Kategori Seçin --</option>
                                     @foreach($categories as $category)
                                         <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>
@@ -427,7 +439,7 @@ $(document).ready(function() {
                     <input type="file" class="form-control form-control-sm" name="variants[${variantIndex}][image]" accept="image/*">
                 </td>
                 <td>
-                    <select class="form-select form-select-sm" name="variants[${variantIndex}][color]" required>
+                    <select class="form-select form-select-sm" name="variants[${variantIndex}][color]">
                         <option value="">Seçin</option>
                         <option value="Kırmızı">Kırmızı</option>
                         <option value="Mavi">Mavi</option>
@@ -442,7 +454,7 @@ $(document).ready(function() {
                     </select>
                 </td>
                 <td>
-                    <select class="form-select form-select-sm" name="variants[${variantIndex}][size]" required>
+                    <select class="form-select form-select-sm" name="variants[${variantIndex}][size]">
                         <option value="">Seçin</option>
                         <option value="XS">XS</option>
                         <option value="S">S</option>
@@ -455,15 +467,15 @@ $(document).ready(function() {
                 </td>
                 <td>
                     <input type="text" class="form-control form-control-sm" name="variants[${variantIndex}][barcode]" 
-                           placeholder="1234567890123" required>
+                           placeholder="1234567890123">
                 </td>
                 <td>
                     <input type="text" class="form-control form-control-sm" name="variants[${variantIndex}][sku]" 
-                           placeholder="PRD-RED-S" required>
+                           placeholder="PRD-RED-S">
                 </td>
                 <td>
                     <input type="number" class="form-control form-control-sm" name="variants[${variantIndex}][price]" 
-                           step="0.01" min="0" placeholder="199.99" required>
+                           step="0.01" min="0" placeholder="199.99">
                 </td>
                 <td>
                     <input type="number" class="form-control form-control-sm" name="variants[${variantIndex}][discount_price]" 
@@ -471,7 +483,7 @@ $(document).ready(function() {
                 </td>
                 <td>
                     <input type="number" class="form-control form-control-sm" name="variants[${variantIndex}][stock]" 
-                           min="0" value="0" required>
+                           min="0" value="0">
                 </td>
                 <td>
                     <select class="form-select form-select-sm" name="variants[${variantIndex}][vat_rate]">
@@ -547,6 +559,116 @@ $(document).ready(function() {
     $('#category_id, #brand_id').select2({
         theme: 'bootstrap-5',
         placeholder: '-- Seçin --'
+    });
+
+    // Form validasyonu ve submit
+    $('#productForm').on('submit', function(e) {
+        console.log('Form submit triggered');
+        
+        // Varyant kontrolü
+        const variantCount = $('#variantTableBody tr').not('#noVariantRow').length;
+        console.log('Variant count:', variantCount);
+        
+        if (variantCount === 0) {
+            e.preventDefault();
+            alert('Lütfen en az bir varyant ekleyin!');
+            $('#variants-tab').tab('show');
+            return false;
+        }
+
+        // Gerekli alanların kontrolü
+        let isValid = true;
+        let errorMessage = '';
+
+        // Ürün adı kontrolü
+        if (!$('#name').val().trim()) {
+            isValid = false;
+            errorMessage = 'Ürün adı zorunludur!';
+            $('#info-tab').tab('show');
+            $('#name').focus();
+        }
+
+        // Model kodu kontrolü
+        else if (!$('#model_code').val().trim()) {
+            isValid = false;
+            errorMessage = 'Model kodu zorunludur!';
+            $('#info-tab').tab('show');
+            $('#model_code').focus();
+        }
+
+        // Kategori kontrolü
+        else if (!$('#category_id').val()) {
+            isValid = false;
+            errorMessage = 'Kategori seçmelisiniz!';
+            $('#info-tab').tab('show');
+            $('#category_id').focus();
+        }
+
+        // Varyant alanlarını kontrol et
+        else {
+            $('#variantTableBody tr').not('#noVariantRow').each(function(index) {
+                const row = $(this);
+                const variantNum = index + 1;
+                
+                if (!row.find('select[name*="[color]"]').val()) {
+                    isValid = false;
+                    errorMessage = `Varyant ${variantNum}: Renk seçmelisiniz!`;
+                    $('#variants-tab').tab('show');
+                    row.find('select[name*="[color]"]').focus();
+                    return false;
+                }
+                
+                if (!row.find('select[name*="[size]"]').val()) {
+                    isValid = false;
+                    errorMessage = `Varyant ${variantNum}: Beden seçmelisiniz!`;
+                    $('#variants-tab').tab('show');
+                    row.find('select[name*="[size]"]').focus();
+                    return false;
+                }
+                
+                if (!row.find('input[name*="[barcode]"]').val().trim()) {
+                    isValid = false;
+                    errorMessage = `Varyant ${variantNum}: Barkod zorunludur!`;
+                    $('#variants-tab').tab('show');
+                    row.find('input[name*="[barcode]"]').focus();
+                    return false;
+                }
+                
+                if (!row.find('input[name*="[sku]"]').val().trim()) {
+                    isValid = false;
+                    errorMessage = `Varyant ${variantNum}: SKU zorunludur!`;
+                    $('#variants-tab').tab('show');
+                    row.find('input[name*="[sku]"]').focus();
+                    return false;
+                }
+                
+                if (!row.find('input[name*="[price]"]').val() || parseFloat(row.find('input[name*="[price]"]').val()) <= 0) {
+                    isValid = false;
+                    errorMessage = `Varyant ${variantNum}: Geçerli bir fiyat giriniz!`;
+                    $('#variants-tab').tab('show');
+                    row.find('input[name*="[price]"]').focus();
+                    return false;
+                }
+            });
+        }
+
+        if (!isValid) {
+            e.preventDefault();
+            alert(errorMessage);
+            return false;
+        }
+
+        console.log('Form is valid, submitting...');
+        
+        // Submit butonu disable
+        $(this).find('button[type="submit"]').prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Kaydediliyor...');
+        
+        // Form verilerini logla
+        const formData = new FormData(this);
+        console.log('Form data entries:');
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ': ' + pair[1]);
+        }
     });
 });
 </script>
