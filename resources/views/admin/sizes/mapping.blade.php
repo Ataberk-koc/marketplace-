@@ -109,27 +109,22 @@
             
             <div class="row mb-3">
                 <div class="col-md-12">
-                    <label for="search" class="form-label">Beden Ara</label>
-                    <input type="text" id="search" class="form-control" placeholder="Trendyol beden adı ile arama yapın...">
-                    <small class="text-muted">Önce Trendyol'dan bedenleri senkronize etmeyi unutmayın!</small>
-                </div>
-            </div>
-
-            <div class="row mb-3">
-                <div class="col-md-12">
                     <label for="trendyol_size_id" class="form-label">Trendyol Bedeni <span class="text-danger">*</span></label>
-                    <select name="trendyol_size_id" id="trendyol_size_id" class="form-select" size="10" required>
-                        <option value="">-- Trendyol bedeni seçin --</option>
+                    <select name="trendyol_size_id" id="trendyol_size_id" class="form-select select2" required style="width: 100%;">
+                        <option value="">-- Trendyol bedeni arayın veya seçin --</option>
                         @foreach($trendyolSizes as $trendyolSize)
                             <option value="{{ $trendyolSize->id }}" 
-                                    {{ old('trendyol_size_id', $size->trendyolMapping->trendyol_size_id ?? '') == $trendyolSize->id ? 'selected' : '' }}>
+                                    data-attribute-type="{{ $trendyolSize->attribute_type ?? 'size' }}"
+                                    {{ old('trendyol_size_id', $size->sizeMapping->trendyol_size_id ?? '') == $trendyolSize->id ? 'selected' : '' }}>
                                 {{ $trendyolSize->name }} 
                                 ({{ $trendyolSize->attribute_type ?? 'size' }})
                                 - ID: {{ $trendyolSize->id }}
                             </option>
                         @endforeach
                     </select>
-                    <small class="text-muted">Beden adı, özellik tipi ve ID bilgilerini görebilirsiniz.</small>
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i> Önce "Trendyol Bedenlerini Senkronize Et" butonuna tıklayın, ardından arama yaparak beden seçin.
+                    </small>
                 </div>
             </div>
 
@@ -144,26 +139,50 @@
 
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('search');
-    const selectElement = document.getElementById('trendyol_size_id');
-    const options = Array.from(selectElement.options);
-
-    searchInput.addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase();
-        
-        // İlk option'ı (placeholder) sakla
-        const firstOption = options[0];
-        selectElement.innerHTML = '';
-        selectElement.appendChild(firstOption);
-        
-        // Filtreleme
-        options.slice(1).forEach(option => {
-            if (option.text.toLowerCase().includes(searchTerm)) {
-                selectElement.appendChild(option);
+$(document).ready(function() {
+    // Select2 başlat
+    $('#trendyol_size_id').select2({
+        theme: 'bootstrap-5',
+        placeholder: '-- Trendyol bedeni arayın veya seçin --',
+        allowClear: true,
+        language: {
+            noResults: function() {
+                return "Sonuç bulunamadı";
+            },
+            searching: function() {
+                return "Aranıyor...";
+            },
+            inputTooShort: function() {
+                return "En az 1 karakter girin";
             }
-        });
+        },
+        width: '100%',
+        templateResult: formatSize
     });
+
+    // Beden görünümünü özelleştir (dropdown'da)
+    function formatSize(size) {
+        if (!size.id) {
+            return size.text;
+        }
+        
+        const $size = $(size.element);
+        const attributeType = $size.data('attribute-type') || 'size';
+        const text = size.text;
+        
+        // Özellik tipine göre ikon ekle
+        let icon = '<i class="bi bi-rulers"></i>';
+        if (attributeType === 'color') {
+            icon = '<i class="bi bi-palette"></i>';
+        }
+        
+        return $('<span>' + icon + ' ' + text + '</span>');
+    }
+    
+    // Sayfa yüklendiğinde mevcut seçimi kontrol et
+    if ($('#trendyol_size_id').val()) {
+        $('#trendyol_size_id').trigger('change');
+    }
 });
 </script>
 @endpush
