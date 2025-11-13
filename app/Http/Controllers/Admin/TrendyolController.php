@@ -128,7 +128,7 @@ class TrendyolController extends Controller
      * Tek ürün gönderme
      */
     /**
-     * Tek bir ürünü Trendyol'a gönder
+     * Tek bir ürünü Trendyol'a gönder (YENİ MAPPING SİSTEMİ KULLANARAK)
      */
     public function sendSingleProduct(ProductTrendyolMapping $mapping)
     {
@@ -137,15 +137,31 @@ class TrendyolController extends Controller
         }
 
         try {
-            // İlişkileri eager load et
-            $mapping->load([
-                'product.brand.brandMapping',
-                'product.category.categoryMapping',
-                'product.sizes.sizeMapping.trendyolSize'
+            // İlişkileri eager load et (variants ve option_values için)
+            $product = $mapping->product;
+            $product->load([
+                'variants',
+                'brand',
+                'category'
             ]);
 
-            $productData = $this->formatProductForTrendyol($mapping);
-            $result = $this->trendyolService->createProduct($productData);
+            // ⭐ YENİ: Mapping-aware payload hazırla
+            $payloadResult = $this->trendyolService->prepareProductPayloadWithMappings($product);
+
+            // Mapping hataları kontrolü
+            if (!$payloadResult['success']) {
+                $errorMessage = 'Mapping hataları: ' . implode(', ', $payloadResult['errors']);
+                
+                $mapping->update([
+                    'status' => 'error',
+                    'error_message' => $errorMessage
+                ]);
+
+                return back()->with('error', $errorMessage);
+            }
+
+            // Trendyol'a gönder
+            $result = $this->trendyolService->createProducts($payloadResult['items']);
 
             if ($result['success']) {
                 $mapping->update([
@@ -154,7 +170,8 @@ class TrendyolController extends Controller
                     'sent_by' => auth()->id(),
                     'trendyol_response' => $result['data'] ?? null
                 ]);
-                return back()->with('success', 'Ürün başarıyla Trendyol\'a gönderildi!');
+                
+                return back()->with('success', 'Ürün başarıyla Trendyol\'a gönderildi! (Toplam variant: ' . count($payloadResult['items']) . ')');
             }
 
             $mapping->update([
@@ -170,13 +187,21 @@ class TrendyolController extends Controller
                 'error_message' => $e->getMessage()
             ]);
             
+            \Log::error('TrendyolController: sendSingleProduct exception', [
+                'mapping_id' => $mapping->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return back()->with('error', 'Gönderim hatası: ' . $e->getMessage());
         }
     }
 
     /**
      * Ürünü Trendyol formatına çevir
-     * ⭐ SADECE MAPPING TABLOLARINDAN ÇEKILEN TRENDYOL ID'LERİ KULLANILIR
+     * ⭐ DEPRECATED: prepareProductPayloadWithMappings() kullanın
+     * ⭐ Bu method eski size mapping sistemini kullanır
+     * ⭐ Yeni attribute mapping sistemi için TrendyolService::prepareProductPayloadWithMappings() kullanılmalı
      */
     private function formatProductForTrendyol(ProductTrendyolMapping $mapping)
     {

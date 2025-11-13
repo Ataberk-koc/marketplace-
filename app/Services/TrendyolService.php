@@ -4,6 +4,11 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\Models\BrandMapping;
+use App\Models\CategoryMapping;
+use App\Models\TrendyolAttributeMapping;
+use App\Models\Product;
+use App\Models\ProductVariant;
 
 /**
  * Trendyol API ile entegrasyon servisi (Mock Data Destekli)
@@ -1003,8 +1008,292 @@ class TrendyolService
         return $this->filterProducts(['page' => $page, 'size' => $size]);
     }
 
+    /**
+     * Brand mapping çözümle
+     * 
+     * @param int $brandId Local brand ID
+     * @return int|null Trendyol brand ID
+     */
+    protected function resolveBrandMapping($brandId)
+    {
+        if (!$brandId) {
+            Log::warning('TrendyolService: Brand ID sağlanmadı');
+            return null;
+        }
+
+        $mapping = BrandMapping::where('brand_id', $brandId)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$mapping) {
+            Log::warning('TrendyolService: Brand mapping bulunamadı', ['brand_id' => $brandId]);
+            return null;
+        }
+
+        Log::info('TrendyolService: Brand mapping çözümlendi', [
+            'brand_id' => $brandId,
+            'trendyol_brand_id' => $mapping->trendyol_brand_id
+        ]);
+
+        return $mapping->trendyol_brand_id;
+    }
+
+    /**
+     * Category mapping çözümle
+     * 
+     * @param int $categoryId Local category ID
+     * @return int|null Trendyol category ID
+     */
+    protected function resolveCategoryMapping($categoryId)
+    {
+        if (!$categoryId) {
+            Log::warning('TrendyolService: Category ID sağlanmadı');
+            return null;
+        }
+
+        $mapping = CategoryMapping::where('category_id', $categoryId)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$mapping) {
+            Log::warning('TrendyolService: Category mapping bulunamadı', ['category_id' => $categoryId]);
+            return null;
+        }
+
+        Log::info('TrendyolService: Category mapping çözümlendi', [
+            'category_id' => $categoryId,
+            'trendyol_category_id' => $mapping->trendyol_category_id
+        ]);
+
+        return $mapping->trendyol_category_id;
+    }
+
+    /**
+     * Variant için attribute mappings çözümle
+     * ProductVariant.option_values JSON structure:
+     * [{"option_id": 1, "option_name": "Renk", "value_id": 5, "value": "Kırmızı"}]
+     * 
+     * @param array $optionValues Variant'ın option_values array'i
+     * @param int|null $trendyolCategoryId Trendyol category ID (category-specific mappings için)
+     * @return array ['success' => bool, 'attributes' => array, 'unmapped' => array]
+     */
+    protected function resolveAttributeMappings($optionValues, $trendyolCategoryId = null)
+    {
+        if (!$optionValues || !is_array($optionValues)) {
+            return [
+                'success' => true,
+                'attributes' => [],
+                'unmapped' => []
+            ];
+        }
+
+        $resolvedAttributes = [];
+        $unmappedAttributes = [];
+
+        foreach ($optionValues as $optionValue) {
+            $optionId = $optionValue['option_id'] ?? null;
+            $valueId = $optionValue['value_id'] ?? null;
+            $optionName = $optionValue['option_name'] ?? 'Unknown';
+            $valueName = $optionValue['value'] ?? 'Unknown';
+
+            if (!$optionId || !$valueId) {
+                Log::warning('TrendyolService: Geçersiz option_value yapısı', [
+                    'option_value' => $optionValue
+                ]);
+                continue;
+            }
+
+            // Mapping ara: önce category-specific, sonra global
+            $mapping = TrendyolAttributeMapping::where('option_id', $optionId)
+                ->where('option_value_id', $valueId)
+                ->where('is_active', true)
+                ->where(function($query) use ($trendyolCategoryId) {
+                    $query->where('trendyol_category_id', $trendyolCategoryId)
+                          ->orWhereNull('trendyol_category_id');
+                })
+                ->orderByRaw('trendyol_category_id IS NULL') // Category-specific önce gelsin
+                ->first();
+
+            if (!$mapping) {
+                $unmappedAttributes[] = [
+                    'option_id' => $optionId,
+                    'option_name' => $optionName,
+                    'value_id' => $valueId,
+                    'value' => $valueName
+                ];
+
+                Log::warning('TrendyolService: Attribute mapping bulunamadı', [
+                    'option_id' => $optionId,
+                    'option_name' => $optionName,
+                    'value_id' => $valueId,
+                    'value' => $valueName,
+                    'trendyol_category_id' => $trendyolCategoryId
+                ]);
+
+                continue;
+            }
+
+            // Trendyol attribute/value IDs kullan
+            $resolvedAttributes[] = [
+                'attributeId' => $mapping->trendyol_attribute_id,
+                'attributeValueId' => $mapping->trendyol_value_id,
+                // Debug için local bilgileri ekle (API'ye gönderilmez)
+                '_local_option_name' => $optionName,
+                '_local_value_name' => $valueName
+            ];
+
+            Log::info('TrendyolService: Attribute mapping çözümlendi', [
+                'option_id' => $optionId,
+                'option_name' => $optionName,
+                'value_id' => $valueId,
+                'value' => $valueName,
+                'trendyol_attribute_id' => $mapping->trendyol_attribute_id,
+                'trendyol_value_id' => $mapping->trendyol_value_id
+            ]);
+        }
+
+        return [
+            'success' => count($unmappedAttributes) === 0,
+            'attributes' => $resolvedAttributes,
+            'unmapped' => $unmappedAttributes
+        ];
+    }
+
+    /**
+     * Product için Trendyol payload hazırla (mapping kullanarak)
+     * 
+     * @param Product $product Product model instance (with loaded relationships)
+     * @return array ['success' => bool, 'items' => array, 'errors' => array]
+     */
+    public function prepareProductPayloadWithMappings(Product $product)
+    {
+        $errors = [];
+        $items = [];
+
+        // 1. Brand mapping çözümle
+        $trendyolBrandId = $this->resolveBrandMapping($product->brand_id);
+        if (!$trendyolBrandId) {
+            $errors[] = "Brand mapping bulunamadı (brand_id: {$product->brand_id})";
+        }
+
+        // 2. Category mapping çözümle
+        $trendyolCategoryId = $this->resolveCategoryMapping($product->category_id);
+        if (!$trendyolCategoryId) {
+            $errors[] = "Category mapping bulunamadı (category_id: {$product->category_id})";
+        }
+
+        // Eğer temel mappings yoksa devam etme
+        if (!empty($errors)) {
+            return [
+                'success' => false,
+                'items' => [],
+                'errors' => $errors
+            ];
+        }
+
+        // 3. Product variants yükle
+        $product->load('variants');
+
+        if ($product->variants->isEmpty()) {
+            $errors[] = "Product'ta variant bulunamadı (product_id: {$product->id})";
+            return [
+                'success' => false,
+                'items' => [],
+                'errors' => $errors
+            ];
+        }
+
+        // 4. Her variant için attribute mappings çözümle
+        foreach ($product->variants as $variant) {
+            // option_values JSON decode
+            $optionValues = is_array($variant->option_values) 
+                ? $variant->option_values 
+                : json_decode($variant->option_values, true);
+
+            // Attribute mappings çözümle
+            $attributeResult = $this->resolveAttributeMappings($optionValues, $trendyolCategoryId);
+
+            if (!$attributeResult['success']) {
+                foreach ($attributeResult['unmapped'] as $unmapped) {
+                    $errors[] = "Attribute mapping eksik: {$unmapped['option_name']} = {$unmapped['value']} (variant_id: {$variant->id})";
+                }
+                continue; // Bu variant'ı atla, diğerlerini dene
+            }
+
+            // Trendyol item payload oluştur
+            $item = [
+                'barcode' => $variant->sku ?? $product->sku . '-' . $variant->id,
+                'title' => $product->name,
+                'productMainId' => $product->sku, // Ana ürün grubu ID
+                'brandId' => $trendyolBrandId,
+                'categoryId' => $trendyolCategoryId,
+                'quantity' => $variant->stock ?? 0,
+                'stockCode' => $variant->sku ?? '',
+                'dimensionalWeight' => 0,
+                'description' => $product->description ?? '',
+                'currencyType' => 'TRY',
+                'listPrice' => (float) $variant->price,
+                'salePrice' => (float) ($variant->sale_price ?? $variant->price),
+                'vatRate' => 10, // KDV oranı (varsayılan %10)
+                'cargoCompanyId' => 10, // Kargo firması (varsayılan: Aras)
+                'images' => $this->prepareProductImages($product),
+                'attributes' => $attributeResult['attributes']
+            ];
+
+            // Debug için local attribute bilgilerini temizle (API'ye gönderme)
+            foreach ($item['attributes'] as &$attr) {
+                unset($attr['_local_option_name']);
+                unset($attr['_local_value_name']);
+            }
+
+            $items[] = $item;
+        }
+
+        // Eğer hiç item oluşmadıysa hata
+        if (empty($items)) {
+            return [
+                'success' => false,
+                'items' => [],
+                'errors' => $errors ?: ['Hiçbir variant için payload oluşturulamadı']
+            ];
+        }
+
+        return [
+            'success' => true,
+            'items' => $items,
+            'errors' => []
+        ];
+    }
+
+    /**
+     * Product images hazırla
+     * 
+     * @param Product $product
+     * @return array Image URLs
+     */
+    protected function prepareProductImages(Product $product)
+    {
+        // Bu örnekte basit bir image array döndürüyoruz
+        // Gerçek uygulamada product->images relationship kullanılabilir
+        $images = [];
+
+        if ($product->image) {
+            $images[] = ['url' => url($product->image)];
+        }
+
+        // Minimum 1 image gerekli
+        if (empty($images)) {
+            $images[] = ['url' => url('/images/no-image.jpg')];
+        }
+
+        return $images;
+    }
+
     public function formatProductForTrendyol($product)
     {
+        // DEPRECATED: prepareProductPayloadWithMappings() kullanın
+        Log::warning('TrendyolService: formatProductForTrendyol() deprecated, prepareProductPayloadWithMappings() kullanın');
+        
         return [
             'barcode' => $product->sku,
             'title' => $product->name,
