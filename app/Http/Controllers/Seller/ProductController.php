@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\CategoryMapping;
+use App\Models\TrendyolCategoryAttribute;
 use App\Models\TrendyolSize;
 use App\Models\Size;
 use Illuminate\Http\Request;
@@ -63,6 +64,9 @@ class ProductController extends Controller
             'stock_quantity' => 'required|integer|min:0',
             'images' => 'nullable|array',
             'images.*' => 'url',
+            'attributes' => 'nullable|array',
+            'attributes.*.attribute_name' => 'required_with:attributes|string',
+            'attributes.*.attribute_value' => 'required_with:attributes|string',
         ]);
 
         $product = Product::create([
@@ -89,6 +93,22 @@ class ProductController extends Controller
                         'additional_price' => $sizeData['price'] ?? 0,
                     ]);
                 }
+            }
+        }
+
+        // Ürün özelliklerini kaydet
+        if ($request->filled('attributes')) {
+            foreach ($request->attributes as $index => $attr) {
+                $product->productAttributes()->create([
+                    'attribute_name' => $attr['attribute_name'],
+                    'attribute_value' => $attr['attribute_value'],
+                    'attribute_type' => $attr['attribute_type'] ?? 'text',
+                    'trendyol_attribute_id' => $attr['trendyol_attribute_id'] ?? null,
+                    'trendyol_attribute_name' => $attr['trendyol_attribute_name'] ?? null,
+                    'is_required' => $attr['is_required'] ?? false,
+                    'is_variant' => $attr['is_variant'] ?? false,
+                    'display_order' => $index,
+                ]);
             }
         }
 
@@ -201,40 +221,42 @@ class ProductController extends Controller
         }
 
         // Kategorinin Trendyol eşleşmesini bul
-        $categoryMapping = CategoryMapping::where('category_id', $categoryId)
-            ->where('is_active', true)
-            ->first();
+        $categoryMapping = CategoryMapping::where('category_id', $categoryId)->first();
 
         if (!$categoryMapping) {
             return response()->json([
                 'success' => true,
                 'message' => 'Bu kategorinin Trendyol eşleşmesi yok',
-                'attributes' => []
+                'attributes' => [],
+                'has_mapping' => false
             ]);
         }
 
-        // TrendyolSize'dan o kategoriye ait tüm özellikleri çek
-        $attributes = TrendyolSize::where('trendyol_category_id', $categoryMapping->trendyol_category_id)
+        // Yeni yapı: TrendyolCategoryAttribute'dan özellikleri çek
+        $attributes = TrendyolCategoryAttribute::where('trendyol_category_id', $categoryMapping->trendyol_category_id)
+            ->orderBy('is_required', 'desc')
+            ->orderBy('display_order')
             ->get()
-            ->groupBy('attribute_name')
-            ->map(function ($values, $attributeName) {
+            ->map(function ($attr) {
                 return [
-                    'attribute_name' => $attributeName,
-                    'values' => $values->map(function ($value) {
-                        return [
-                            'id' => $value->id,
-                            'trendyol_attribute_id' => $value->trendyol_attribute_id,
-                            'trendyol_attribute_value_id' => $value->trendyol_attribute_value_id,
-                            'value_name' => $value->value_name,
-                        ];
-                    })->values()
+                    'attribute_id' => $attr->attribute_id,
+                    'attribute_name' => $attr->attribute_name,
+                    'attribute_type' => $attr->attribute_type,
+                    'is_required' => $attr->is_required,
+                    'is_variant_based' => $attr->is_variant_based,
+                    'allows_custom_value' => $attr->allows_custom_value,
+                    'allowed_values' => $attr->allowed_values ?? [],
                 ];
-            })
-            ->values();
+            });
 
         return response()->json([
             'success' => true,
-            'attributes' => $attributes
+            'has_mapping' => true,
+            'trendyol_category_id' => $categoryMapping->trendyol_category_id,
+            'trendyol_category_name' => $categoryMapping->trendyol_category_name,
+            'attributes' => $attributes,
+            'required_count' => $attributes->where('is_required', true)->count(),
+            'optional_count' => $attributes->where('is_required', false)->count(),
         ]);
     }
 }

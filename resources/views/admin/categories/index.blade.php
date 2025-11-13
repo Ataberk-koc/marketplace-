@@ -5,9 +5,14 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-grid"></i> Kategoriler</h1>
-    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal">
-        <i class="bi bi-plus-lg"></i> Yeni Kategori
-    </button>
+    <div class="btn-group">
+        <a href="{{ route('admin.categories.create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Yeni Kategori Ekle
+        </a>
+        <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#syncModal">
+            <i class="bi bi-arrow-repeat"></i> Trendyol'dan Senkronize Et
+        </button>
+    </div>
 </div>
 
 <div class="card">

@@ -5,19 +5,21 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-rulers"></i> Beden Yönetimi</h1>
-    <div>
-        <button type="button" class="btn btn-warning me-2" onclick="window.location.href='{{ route('admin.sizes.bulk-mapping') }}'">
+    <div class="btn-group">
+        <a href="{{ route('admin.sizes.create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Yeni Beden Ekle
+        </a>
+        <a href="{{ route('admin.sizes.bulk-mapping') }}" class="btn btn-warning">
             <i class="bi bi-grid-3x3"></i> Toplu Eşleştir
-        </button>
+        </a>
         <form action="{{ route('admin.sizes.sync-trendyol') }}" method="POST" class="d-inline">
             @csrf
-            <button type="submit" class="btn btn-info me-2">
+            <button type="submit" class="btn btn-info">
                 <i class="bi bi-arrow-repeat"></i> Trendyol'dan Senkronize Et
             </button>
         </form>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal">
-            <i class="bi bi-plus-lg"></i> Yeni Beden
-        </button>
+    </div>
+</div>
     </div>
 </div>
 

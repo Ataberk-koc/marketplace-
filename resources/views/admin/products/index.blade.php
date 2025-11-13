@@ -5,6 +5,9 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-box-seam"></i> Ürünler</h2>
+    <a href="{{ route('admin.products.create') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Yeni Ürün Ekle
+    </a>
 </div>
 
 <div class="card">
@@ -67,14 +70,26 @@
                     </td>
                     <td>
                         <div class="btn-group btn-group-sm">
-                            <a href="{{ route('products.show', $product) }}" 
-                               class="btn btn-info" target="_blank">
+                            <a href="{{ route('admin.products.show', $product) }}" 
+                               class="btn btn-info"
+                               title="Detaylar">
                                 <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{{ route('admin.products.edit', $product) }}" 
+                               class="btn btn-warning"
+                               title="Düzenle">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{{ route('admin.products.attributes', $product) }}" 
+                               class="btn btn-success"
+                               title="Özellikler">
+                                <i class="bi bi-list-stars"></i>
                             </a>
                             <form action="{{ route('admin.products.toggle-active', $product) }}" method="POST" class="d-inline">
                                 @csrf
                                 @method('POST')
-                                <button type="submit" class="btn btn-{{ $product->is_active ? 'warning' : 'success' }}">
+                                <button type="submit" class="btn btn-{{ $product->is_active ? 'secondary' : 'primary' }}"
+                                        title="{{ $product->is_active ? 'Pasif Yap' : 'Aktif Yap' }}">
                                     <i class="bi bi-{{ $product->is_active ? 'pause' : 'play' }}"></i>
                                 </button>
                             </form>

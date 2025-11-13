@@ -29,6 +29,19 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/products', [HomeController::class, 'products'])->name('products.index');
 Route::get('/products/{slug}', [HomeController::class, 'productShow'])->name('products.show');
 
+// Test route - Trendyol API
+Route::get('/test-trendyol-brands', function() {
+    $service = new \App\Services\TrendyolService();
+    $result = $service->getBrands(0);
+    
+    return response()->json([
+        'success' => $result['success'],
+        'brand_count' => count($result['data']['brands'] ?? []),
+        'first_5_brands' => array_slice($result['data']['brands'] ?? [], 0, 5),
+        'message' => $result['message'] ?? 'OK'
+    ]);
+});
+
 // Authentication Routes
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -42,12 +55,20 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout')->midd
 // Email Verification Routes
 Route::middleware('auth')->group(function () {
     Route::get('/email/verify', [VerificationController::class, 'show'])->name('verification.notice');
+    Route::post('/email/verification-notification', [VerificationController::class, 'resend'])->name('verification.send');
     Route::get('/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])->name('verification.verify');
-    Route::post('/email/resend', [VerificationController::class, 'resend'])->name('verification.resend');
 });
 
-// User Routes (Müşteri) - Email doğrulanmış ve aktif hesap gerekli
-Route::middleware(['auth', 'verified.active'])->prefix('user')->name('user.')->group(function () {
+// Email Verification Routes
+// Email verification route'ları (isteğe bağlı - şu an kullanılmıyor)
+// Route::middleware('auth')->group(function () {
+//     Route::get('/email/verify', [VerificationController::class, 'show'])->name('verification.notice');
+//     Route::get('/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])->name('verification.verify');
+//     Route::post('/email/resend', [VerificationController::class, 'resend'])->name('verification.resend');
+// });
+
+// User Routes (Müşteri) - Sadece auth gerekli
+Route::middleware(['auth'])->prefix('user')->name('user.')->group(function () {
     // Sepet
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
@@ -63,8 +84,8 @@ Route::middleware(['auth', 'verified.active'])->prefix('user')->name('user.')->g
     Route::post('/orders/{order}/cancel', [UserOrderController::class, 'cancel'])->name('orders.cancel');
 });
 
-// Admin Routes - Admin yetkisi gerekli
-Route::middleware(['auth', 'verified.active', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+// Admin Routes - Sadece admin yetkisi gerekli
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
     // Kullanıcı yönetimi
@@ -76,6 +97,9 @@ Route::middleware(['auth', 'verified.active', 'admin'])->prefix('admin')->name('
     Route::resource('products', AdminProductController::class);
     Route::post('/products/{product}/toggle-active', [AdminProductController::class, 'toggleActive'])->name('products.toggle-active');
     Route::post('/products/{product}/toggle-featured', [AdminProductController::class, 'toggleFeatured'])->name('products.toggle-featured');
+    Route::get('/products/{product}/attributes', [AdminProductController::class, 'attributes'])->name('products.attributes');
+    Route::post('/products/{product}/attributes', [AdminProductController::class, 'saveAttributes'])->name('products.save-attributes');
+    Route::post('/sync-category-attributes', [AdminProductController::class, 'syncCategoryAttributes'])->name('products.sync-category-attributes');
 
     // Sipariş yönetimi
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');

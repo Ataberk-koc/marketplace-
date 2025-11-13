@@ -87,6 +87,34 @@ class Product extends Model
     }
 
     /**
+     * Ürün özellikleri (attributes)
+     */
+    public function productAttributes()
+    {
+        return $this->hasMany(ProductAttribute::class)->orderBy('display_order');
+    }
+
+    /**
+     * Varyant özellikleri (renk, beden vb.)
+     */
+    public function variantAttributes()
+    {
+        return $this->hasMany(ProductAttribute::class)
+            ->where('is_variant', true)
+            ->orderBy('display_order');
+    }
+
+    /**
+     * Zorunlu özellikler
+     */
+    public function requiredAttributes()
+    {
+        return $this->hasMany(ProductAttribute::class)
+            ->where('is_required', true)
+            ->orderBy('display_order');
+    }
+
+    /**
      * Sepet kalemleri
      */
     public function cartItems()

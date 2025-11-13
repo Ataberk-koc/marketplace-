@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Brand;
 use App\Models\Category;
+use App\Models\ProductAttribute;
+use App\Models\TrendyolCategoryAttribute;
+use App\Services\TrendyolService;
 use Illuminate\Http\Request;
 
 /**
@@ -177,5 +180,133 @@ class ProductController extends Controller
         $product->delete();
 
         return back()->with('success', 'Ürün silindi!');
+    }
+
+    /**
+     * Ürün detaylarını gösterir (özellikleri ile birlikte)
+     */
+    public function show(Product $product)
+    {
+        $product->load([
+            'brand',
+            'category',
+            'seller',
+            'sizes',
+            'productAttributes' => function($query) {
+                $query->orderBy('is_required', 'desc')->orderBy('display_order');
+            },
+            'trendyolMapping'
+        ]);
+
+        return view('admin.products.show', compact('product'));
+    }
+
+    /**
+     * Ürün özelliklerini yönetme sayfası
+     */
+    public function attributes(Product $product)
+    {
+        $product->load([
+            'brand',
+            'category',
+            'productAttributes' => function($query) {
+                $query->orderBy('display_order');
+            }
+        ]);
+
+        // Kategorinin Trendyol mapping'i varsa, o kategoriye ait attribute'ları getir
+        $trendyolAttributes = [];
+        if ($product->category->categoryMapping) {
+            $trendyolCategoryId = $product->category->categoryMapping->trendyol_category_id;
+            $trendyolAttributes = TrendyolCategoryAttribute::getCategoryAttributes($trendyolCategoryId);
+        }
+
+        return view('admin.products.attributes', compact('product', 'trendyolAttributes'));
+    }
+
+    /**
+     * Ürün özelliklerini kaydet/güncelle
+     */
+    public function saveAttributes(Request $request, Product $product)
+    {
+        $validated = $request->validate([
+            'attributes' => 'required|array',
+            'attributes.*.attribute_name' => 'required|string',
+            'attributes.*.attribute_value' => 'required|string',
+            'attributes.*.attribute_type' => 'nullable|string',
+            'attributes.*.trendyol_attribute_id' => 'nullable|string',
+            'attributes.*.trendyol_attribute_name' => 'nullable|string',
+            'attributes.*.is_required' => 'boolean',
+            'attributes.*.is_variant' => 'boolean',
+            'attributes.*.display_order' => 'nullable|integer',
+        ]);
+
+        // Mevcut attribute'ları sil
+        $product->productAttributes()->delete();
+
+        // Yeni attribute'ları kaydet
+        foreach ($validated['attributes'] as $index => $attr) {
+            $product->productAttributes()->create([
+                'attribute_name' => $attr['attribute_name'],
+                'attribute_value' => $attr['attribute_value'],
+                'attribute_type' => $attr['attribute_type'] ?? 'text',
+                'trendyol_attribute_id' => $attr['trendyol_attribute_id'] ?? null,
+                'trendyol_attribute_name' => $attr['trendyol_attribute_name'] ?? null,
+                'is_required' => $attr['is_required'] ?? false,
+                'is_variant' => $attr['is_variant'] ?? false,
+                'display_order' => $attr['display_order'] ?? $index,
+            ]);
+        }
+
+        return back()->with('success', 'Ürün özellikleri kaydedildi!');
+    }
+
+    /**
+     * Kategoriye ait Trendyol attribute'larını senkronize et
+     */
+    public function syncCategoryAttributes(Request $request)
+    {
+        $validated = $request->validate([
+            'trendyol_category_id' => 'required|string',
+        ]);
+
+        $trendyolService = app(TrendyolService::class);
+        $result = $trendyolService->getCategoryAttributes($validated['trendyol_category_id']);
+
+        if (!$result['success']) {
+            return back()->with('error', 'Trendyol category attributes alınamadı: ' . ($result['message'] ?? 'Bilinmeyen hata'));
+        }
+
+        $categoryId = $validated['trendyol_category_id'];
+        $attributes = $result['data']['categoryAttributes'] ?? [];
+
+        // Mevcut attribute'ları temizle
+        TrendyolCategoryAttribute::where('trendyol_category_id', $categoryId)->delete();
+
+        // Yeni attribute'ları kaydet
+        foreach ($attributes as $index => $attr) {
+            $attribute = $attr['attribute'];
+            $allowedValues = [];
+
+            if (isset($attr['attributeValues']) && is_array($attr['attributeValues'])) {
+                $allowedValues = array_map(function($val) {
+                    return ['id' => $val['id'], 'name' => $val['name']];
+                }, $attr['attributeValues']);
+            }
+
+            TrendyolCategoryAttribute::create([
+                'trendyol_category_id' => $categoryId,
+                'attribute_id' => $attribute['id'],
+                'attribute_name' => $attribute['name'],
+                'attribute_type' => $attr['attributeType'] ?? 'text',
+                'is_required' => $attr['required'] ?? false,
+                'allows_custom_value' => $attr['allowCustom'] ?? false,
+                'is_variant_based' => $attr['varianter'] ?? false,
+                'allowed_values' => !empty($allowedValues) ? $allowedValues : null,
+                'display_order' => $index,
+            ]);
+        }
+
+        return back()->with('success', count($attributes) . ' adet özellik senkronize edildi!');
     }
 }

@@ -5,6 +5,14 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-tag"></i> Markalar</h2>
+    <div class="btn-group">
+        <a href="{{ route('admin.brands.create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Yeni Marka Ekle
+        </a>
+        <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#syncModal">
+            <i class="bi bi-arrow-repeat"></i> Trendyol'dan Senkronize Et
+        </button>
+    </div>
 </div>
 
 <div class="card">

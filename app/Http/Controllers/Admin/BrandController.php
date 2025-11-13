@@ -104,17 +104,20 @@ class BrandController extends Controller
 
     /**
      * Trendyol markalarını senkronize eder
-     * Artık veritabanına kaydetmiyor, sadece API'den çekip gösteriyor
+     * Public API - Authentication gerektirmez
+     * Tüm markaları sayfalayarak çeker (her sayfada ~1000 marka)
      */
     public function syncTrendyolBrands()
     {
-        $result = $this->trendyolService->getBrands();
+        set_time_limit(300); // 5 dakika timeout
+        
+        $result = $this->trendyolService->getAllBrands();
 
         if (!$result['success']) {
-            return back()->with('error', 'Trendyol markaları alınamadı: ' . $result['message']);
+            return back()->with('error', 'Trendyol markaları alınamadı: ' . ($result['message'] ?? 'Bilinmeyen hata'));
         }
 
-        // Artık veritabanına kaydetmiyoruz, sadece session'a alıyoruz
+        // Session'a kaydet (eşleştirme için kullanılacak)
         session(['trendyol_brands' => $result['data']['brands'] ?? []]);
 
         $count = count($result['data']['brands'] ?? []);
@@ -126,12 +129,12 @@ class BrandController extends Controller
      */
     public function mapping(Brand $brand)
     {
-        // Trendyol markalarını API'den çek (veya session'dan al)
+        // Trendyol markalarını session'dan al
         $trendyolBrands = session('trendyol_brands', []);
         
-        // Eğer session boşsa API'den çek
+        // Eğer session boşsa API'den tüm markaları çek
         if (empty($trendyolBrands)) {
-            $result = $this->trendyolService->getBrands();
+            $result = $this->trendyolService->getAllBrands();
             if ($result['success']) {
                 $trendyolBrands = $result['data']['brands'] ?? [];
                 session(['trendyol_brands' => $trendyolBrands]);

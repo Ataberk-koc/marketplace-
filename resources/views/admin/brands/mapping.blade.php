@@ -113,44 +113,68 @@
 
 <div class="card mt-4">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-search"></i> Trendyol Markası Seç</h5>
+        <h5 class="mb-0"><i class="bi bi-search"></i> Trendyol Markası Ara ve Seç</h5>
         <form action="{{ route('admin.brands.sync-trendyol') }}" method="POST" class="d-inline">
             @csrf
             <button type="submit" class="btn btn-sm btn-warning">
-                <i class="bi bi-arrow-repeat"></i> Trendyol Markalarını Senkronize Et
+                <i class="bi bi-arrow-repeat"></i> Trendyol Markalarını Yükle
             </button>
         </form>
     </div>
     <div class="card-body">
-        <form action="{{ route('admin.brands.save-mapping', $brand) }}" method="POST">
+        <form action="{{ route('admin.brands.save-mapping', $brand) }}" method="POST" id="mappingForm">
             @csrf
             
             <div class="row mb-3">
                 <div class="col-md-12">
-                    <label for="trendyol_brand_id" class="form-label">Trendyol Markası <span class="text-danger">*</span></label>
-                    <select name="trendyol_brand_id" id="trendyol_brand_id" class="form-select select2" required style="width: 100%;">
-                        <option value="">-- Trendyol markası seçin --</option>
-                        @foreach($trendyolBrands as $trendyolBrand)
-                            @php
-                                $brandId = is_array($trendyolBrand) ? $trendyolBrand['id'] : $trendyolBrand->id;
-                                $brandName = is_array($trendyolBrand) ? $trendyolBrand['name'] : $trendyolBrand->name;
-                            @endphp
-                            <option value="{{ $brandId }}" 
-                                    data-brand-name="{{ $brandName }}"
-                                    {{ old('trendyol_brand_id', $brand->brandMapping->trendyol_brand_id ?? '') == $brandId ? 'selected' : '' }}>
-                                {{ $brandName }} (ID: {{ $brandId }})
-                            </option>
-                        @endforeach
-                    </select>
-                    <input type="hidden" name="trendyol_brand_name" id="trendyol_brand_name">
+                    <label for="brand_search" class="form-label">Marka Ara</label>
+                    <input type="text" 
+                           class="form-control form-control-lg" 
+                           id="brand_search" 
+                           placeholder="Marka adı yazın... (örn: Nike, Adidas, Zara)" 
+                           autocomplete="off">
                     <small class="text-muted">
-                        <i class="bi bi-info-circle"></i> Önce "Trendyol Markalarını Senkronize Et" butonuna tıklayın, ardından arama yaparak marka seçin.
+                        <i class="bi bi-info-circle"></i> En az 2 karakter girin, eşleşen markalar aşağıda listelenecek
                     </small>
                 </div>
             </div>
 
+            <!-- Arama Sonuçları -->
+            <div id="search_results" class="mb-3" style="display: none;">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <strong>Arama Sonuçları</strong> <span id="result_count" class="badge bg-primary">0</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="results_list" style="max-height: 400px; overflow-y: auto;">
+                            <!-- Sonuçlar buraya gelecek -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seçilen Marka -->
+            <div id="selected_brand_section" style="display: none;">
+                <div class="alert alert-success">
+                    <h6><i class="bi bi-check-circle"></i> Seçilen Marka:</h6>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong id="selected_brand_name"></strong>
+                            <br>
+                            <small class="text-muted">ID: <span id="selected_brand_id"></span></small>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger" id="clear_selection">
+                            <i class="bi bi-x-circle"></i> Temizle
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <input type="hidden" name="trendyol_brand_id" id="trendyol_brand_id">
+            <input type="hidden" name="trendyol_brand_name" id="trendyol_brand_name">
+
             <div class="d-grid">
-                <button type="submit" class="btn btn-primary btn-lg">
+                <button type="submit" class="btn btn-primary btn-lg" id="save_button" disabled>
                     <i class="bi bi-save"></i> Eşleştirmeyi Kaydet
                 </button>
             </div>
@@ -161,41 +185,162 @@
 @push('scripts')
 <script>
 $(document).ready(function() {
-    // Select2 başlat
-    $('#trendyol_brand_id').select2({
-        theme: 'bootstrap-5',
-        placeholder: '-- Trendyol markası arayın veya seçin --',
-        allowClear: true,
-        language: {
-            noResults: function() {
-                return "Sonuç bulunamadı";
-            },
-            searching: function() {
-                return "Aranıyor...";
-            },
-            inputTooShort: function() {
-                return "En az 1 karakter girin";
-            }
-        },
-        width: '100%'
+    // Trendyol markaları (session'dan)
+    const trendyolBrands = @json($trendyolBrands);
+    
+    console.log('Yüklü marka sayısı:', trendyolBrands.length);
+
+    // Marka arama
+    let searchTimeout;
+    $('#brand_search').on('input', function() {
+        clearTimeout(searchTimeout);
+        const query = $(this).val().trim().toLowerCase();
+        
+        if (query.length < 2) {
+            $('#search_results').hide();
+            return;
+        }
+
+        searchTimeout = setTimeout(function() {
+            searchBrands(query);
+        }, 300); // 300ms debounce
     });
 
-    // Marka seçildiğinde otomatik olarak brand name'i doldur
-    $('#trendyol_brand_id').on('change', function() {
-        const selectedOption = $(this).find(':selected');
-        if (selectedOption.val()) {
-            const brandName = selectedOption.data('brand-name') || selectedOption.text().split('(ID:')[0].trim();
-            $('#trendyol_brand_name').val(brandName);
-            console.log('Seçilen marka:', brandName);
-        } else {
-            $('#trendyol_brand_name').val('');
-        }
-    });
-    
-    // Sayfa yüklendiğinde mevcut seçimi kontrol et
-    if ($('#trendyol_brand_id').val()) {
-        $('#trendyol_brand_id').trigger('change');
+    function searchBrands(query) {
+        const results = trendyolBrands.filter(brand => {
+            const brandName = (brand.name || '').toLowerCase();
+            return brandName.includes(query);
+        });
+
+        displayResults(results, query);
     }
+
+    function displayResults(results, query) {
+        const $resultsList = $('#results_list');
+        $resultsList.empty();
+
+        if (results.length === 0) {
+            $resultsList.html(`
+                <div class="p-3 text-center text-muted">
+                    <i class="bi bi-search"></i> 
+                    "<strong>${escapeHtml(query)}</strong>" için sonuç bulunamadı
+                </div>
+            `);
+        } else {
+            results.slice(0, 50).forEach(brand => { // İlk 50 sonuç
+                const brandId = brand.id;
+                const brandName = brand.name;
+                const highlightedName = highlightMatch(brandName, query);
+
+                $resultsList.append(`
+                    <a href="#" class="list-group-item list-group-item-action search-result-item" 
+                       data-brand-id="${brandId}" 
+                       data-brand-name="${escapeHtml(brandName)}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${highlightedName}</strong>
+                                <br>
+                                <small class="text-muted">ID: ${brandId}</small>
+                            </div>
+                            <i class="bi bi-arrow-right-circle text-primary"></i>
+                        </div>
+                    </a>
+                `);
+            });
+
+            if (results.length > 50) {
+                $resultsList.append(`
+                    <div class="p-2 text-center text-muted bg-light">
+                        <small>+${results.length - 50} daha fazla sonuç. Daha spesifik arama yapın.</small>
+                    </div>
+                `);
+            }
+        }
+
+        $('#result_count').text(results.length);
+        $('#search_results').show();
+    }
+
+    function highlightMatch(text, query) {
+        const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+        return escapeHtml(text).replace(regex, '<mark>$1</mark>');
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // Arama sonucundan marka seçme
+    $(document).on('click', '.search-result-item', function(e) {
+        e.preventDefault();
+        const brandId = $(this).data('brand-id');
+        const brandName = $(this).data('brand-name');
+        
+        selectBrand(brandId, brandName);
+    });
+
+    function selectBrand(brandId, brandName) {
+        // Hidden input'lara yaz
+        $('#trendyol_brand_id').val(brandId);
+        $('#trendyol_brand_name').val(brandName);
+        
+        // Seçili marka göster
+        $('#selected_brand_id').text(brandId);
+        $('#selected_brand_name').text(brandName);
+        $('#selected_brand_section').show();
+        
+        // Arama sonuçlarını gizle
+        $('#search_results').hide();
+        $('#brand_search').val('');
+        
+        // Kaydet butonunu aktif et
+        $('#save_button').prop('disabled', false);
+        
+        // Bildirim göster
+        showNotification('success', `<strong>${brandName}</strong> seçildi!`);
+    }
+
+    // Seçimi temizle
+    $('#clear_selection').on('click', function() {
+        $('#trendyol_brand_id').val('');
+        $('#trendyol_brand_name').val('');
+        $('#selected_brand_section').hide();
+        $('#save_button').prop('disabled', true);
+        $('#brand_search').val('').focus();
+    });
+
+    // Bildirim göster
+    function showNotification(type, message) {
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-info';
+        const notification = $(`
+            <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+                 style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
+                <i class="bi bi-check-circle"></i> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `);
+        $('body').append(notification);
+        setTimeout(() => notification.remove(), 3000);
+    }
+
+    // Sayfa yüklendiğinde mevcut eşleştirme varsa göster
+    @if($brand->trendyolMapping)
+        selectBrand(
+            '{{ $brand->trendyolMapping->trendyol_brand_id }}',
+            '{{ $brand->trendyolMapping->trendyol_brand_name }}'
+        );
+    @endif
+
+    // Trendyol markası yüklenmemişse uyarı
+    @if(count($trendyolBrands) === 0)
+        $('#brand_search').prop('disabled', true).attr('placeholder', 'Önce "Trendyol Markalarını Yükle" butonuna tıklayın');
+    @endif
 });
 </script>
 @endpush

@@ -98,42 +98,113 @@ class TrendyolService
     }
 
     /**
-     * Trendyol Marka Listesi (Mock Destekli)
+     * Trendyol Marka Listesi (Public Endpoint - Auth Gerektirmez)
      * GET /integration/product/brands
+     * Sayfalama: Her sayfada minimum 1000 marka döner
      */
-    public function getBrands()
+    public function getBrands($page = 0)
     {
-        // Mock mode aktifse sahte veri döndür
-        if ($this->isMockMode) {
-            return $this->getMockBrands();
-        }
-        
         try {
-            $response = $this->request('get', '/integration/product/brands');
+            // Public endpoint - authentication gerektirmez
+            $url = $this->apiUrl . '/integration/product/brands';
+            
+            // Sayfa parametresi varsa ekle
+            if ($page > 0) {
+                $url .= '?page=' . $page;
+            }
+
+            Log::info('Trendyol getBrands request', ['url' => $url, 'page' => $page]);
+
+            $response = Http::timeout(30)
+                ->withOptions(['verify' => false])
+                ->get($url);
 
             if ($response->successful()) {
+                $data = $response->json();
+                
+                Log::info('Trendyol getBrands success', [
+                    'total_brands' => count($data['brands'] ?? []),
+                    'page' => $page
+                ]);
+                
                 return [
                     'success' => true,
-                    'data' => $response->json()
+                    'data' => $data
                 ];
             }
 
             Log::error('Trendyol getBrands error', [
                 'response' => $response->body(),
-                'status' => $response->status()
+                'status' => $response->status(),
+                'page' => $page
             ]);
             
             return [
                 'success' => false,
-                'message' => 'Markalar alınamadı',
+                'message' => 'Markalar alınamadı: ' . $response->status(),
                 'error' => $response->body()
             ];
         } catch (\Exception $e) {
-            Log::error('Trendyol getBrands exception', ['error' => $e->getMessage()]);
+            Log::error('Trendyol getBrands exception', [
+                'error' => $e->getMessage(),
+                'page' => $page
+            ]);
             
             return [
                 'success' => false,
                 'message' => 'Bir hata oluştu: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Tüm Trendyol markalarını sayfalayarak çeker
+     */
+    public function getAllBrands()
+    {
+        $allBrands = [];
+        $page = 0;
+        $hasMorePages = true;
+
+        try {
+            while ($hasMorePages) {
+                Log::info('Fetching brands page', ['page' => $page]);
+                
+                $result = $this->getBrands($page);
+                
+                if (!$result['success']) {
+                    break;
+                }
+                
+                $brands = $result['data']['brands'] ?? [];
+                
+                if (empty($brands)) {
+                    $hasMorePages = false;
+                } else {
+                    $allBrands = array_merge($allBrands, $brands);
+                    $page++;
+                    
+                    // Güvenlik için maksimum 100 sayfa (100,000 marka)
+                    if ($page >= 100) {
+                        Log::warning('Max page limit reached for getBrands');
+                        break;
+                    }
+                }
+            }
+            
+            Log::info('Total brands fetched', ['count' => count($allBrands)]);
+            
+            return [
+                'success' => true,
+                'data' => ['brands' => $allBrands]
+            ];
+            
+        } catch (\Exception $e) {
+            Log::error('getAllBrands exception', ['error' => $e->getMessage()]);
+            
+            return [
+                'success' => false,
+                'message' => 'Tüm markalar alınamadı: ' . $e->getMessage()
             ];
         }
     }
