@@ -29,7 +29,7 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/products', [HomeController::class, 'products'])->name('products.index');
 Route::get('/products/{slug}', [HomeController::class, 'productShow'])->name('products.show');
 
-// Test route - Trendyol API
+// Test routes - Trendyol API
 Route::get('/test-trendyol-brands', function() {
     $service = new \App\Services\TrendyolService();
     $result = $service->getBrands(0);
@@ -38,6 +38,23 @@ Route::get('/test-trendyol-brands', function() {
         'success' => $result['success'],
         'brand_count' => count($result['data']['brands'] ?? []),
         'first_5_brands' => array_slice($result['data']['brands'] ?? [], 0, 5),
+        'message' => $result['message'] ?? 'OK'
+    ]);
+});
+
+Route::get('/test-trendyol-categories', function() {
+    $service = new \App\Services\TrendyolService();
+    $result = $service->getFlatCategories();
+    
+    $leafCategories = array_filter($result['data']['categories'] ?? [], function($cat) {
+        return $cat['leaf'] === true;
+    });
+    
+    return response()->json([
+        'success' => $result['success'],
+        'total_categories' => count($result['data']['categories'] ?? []),
+        'leaf_categories' => count($leafCategories),
+        'first_10_leaf_categories' => array_slice($leafCategories, 0, 10),
         'message' => $result['message'] ?? 'OK'
     ]);
 });

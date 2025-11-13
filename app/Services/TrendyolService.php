@@ -246,23 +246,37 @@ class TrendyolService
     }
 
     /**
-     * Trendyol Kategori Listesi (Mock Destekli)
+     * Trendyol Kategori Ağacı (Public Endpoint - Auth Gerektirmez)
      * GET /integration/product/product-categories
+     * 
+     * UYARI: Sadece en alt seviye (leaf=true) kategoriler ile ürün eklenebilir!
+     * Kategori ağacı düzenli olarak güncellenir, haftalık çekmeniz önerilir.
      */
     public function getCategories()
     {
-        // Mock mode aktifse sahte veri döndür
-        if ($this->isMockMode) {
-            return $this->getMockCategories();
-        }
-        
         try {
-            $response = $this->request('get', '/integration/product/product-categories');
+            // Public endpoint - authentication gerektirmez
+            $url = $this->apiUrl . '/integration/product/product-categories';
+
+            Log::info('Trendyol getCategories request', ['url' => $url]);
+
+            $response = Http::timeout(60) // Kategori ağacı büyük olabilir
+                ->withOptions(['verify' => false])
+                ->get($url);
 
             if ($response->successful()) {
+                $data = $response->json();
+                
+                // Kategori sayısını logla
+                $totalCategories = $this->countCategories($data['categories'] ?? []);
+                
+                Log::info('Trendyol getCategories success', [
+                    'total_categories' => $totalCategories
+                ]);
+                
                 return [
                     'success' => true,
-                    'data' => $response->json()
+                    'data' => $data
                 ];
             }
 
@@ -273,16 +287,83 @@ class TrendyolService
             
             return [
                 'success' => false,
-                'message' => 'Kategoriler alınamadı',
+                'message' => 'Kategoriler alınamadı: ' . $response->status(),
                 'error' => $response->body()
             ];
         } catch (\Exception $e) {
-            Log::error('Trendyol getCategories exception', ['error' => $e->getMessage()]);
+            Log::error('Trendyol getCategories exception', [
+                'error' => $e->getMessage()
+            ]);
             
             return [
                 'success' => false,
                 'message' => 'Bir hata oluştu: ' . $e->getMessage()
             ];
+        }
+    }
+
+    /**
+     * Kategori ağacındaki toplam kategori sayısını hesapla (recursive)
+     */
+    protected function countCategories($categories)
+    {
+        $count = count($categories);
+        
+        foreach ($categories as $category) {
+            if (!empty($category['subCategories'])) {
+                $count += $this->countCategories($category['subCategories']);
+            }
+        }
+        
+        return $count;
+    }
+
+    /**
+     * Tüm kategorileri düz liste haline getirir (ağaç yapısını bozar)
+     * Arama ve eşleştirme için kullanışlıdır
+     */
+    public function getFlatCategories()
+    {
+        $result = $this->getCategories();
+        
+        if (!$result['success']) {
+            return $result;
+        }
+        
+        $flatCategories = [];
+        $this->flattenCategories($result['data']['categories'] ?? [], $flatCategories);
+        
+        Log::info('Flat categories created', ['count' => count($flatCategories)]);
+        
+        return [
+            'success' => true,
+            'data' => ['categories' => $flatCategories]
+        ];
+    }
+
+    /**
+     * Kategori ağacını düz listeye çevirir (recursive)
+     */
+    protected function flattenCategories($categories, &$flatList, $parentPath = '')
+    {
+        foreach ($categories as $category) {
+            // Path oluştur
+            $path = $parentPath ? $parentPath . ' > ' . $category['name'] : $category['name'];
+            
+            $flatCategory = [
+                'id' => $category['id'],
+                'name' => $category['name'],
+                'path' => $path,
+                'parentId' => $category['parentId'] ?? null,
+                'leaf' => $category['leaf'] ?? false,
+            ];
+            
+            $flatList[] = $flatCategory;
+            
+            // Alt kategorileri işle
+            if (!empty($category['subCategories'])) {
+                $this->flattenCategories($category['subCategories'], $flatList, $path);
+            }
         }
     }
 

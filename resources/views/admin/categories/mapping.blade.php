@@ -117,18 +117,19 @@
 
 <div class="card mt-4">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-search"></i> Trendyol Kategorisi Seç</h5>
+        <h5 class="mb-0"><i class="bi bi-search"></i> Trendyol Kategorisi Ara ve Seç</h5>
         <form action="{{ route('admin.categories.sync-trendyol') }}" method="POST" class="d-inline">
             @csrf
             <button type="submit" class="btn btn-sm btn-warning">
-                <i class="bi bi-arrow-repeat"></i> Trendyol Kategorilerini Senkronize Et
+                <i class="bi bi-arrow-repeat"></i> Trendyol Kategorilerini Yükle
             </button>
         </form>
     </div>
     <div class="card-body">
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle"></i> 
-            <strong>Önemli:</strong> Trendyol kategorileri hiyerarşik yapıdadır. Ürün gönderirken en alt seviye (leaf) kategori seçilmelidir.
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i> 
+            <strong>ÖNEMLİ:</strong> Sadece <strong>en alt seviye</strong> (✓ işaretli LEAF) kategoriler ile ürün eklenebilir! 
+            Alt kategorisi olan kategoriler seçilemez.
         </div>
 
         <form action="{{ route('admin.categories.save-mapping', $category) }}" method="POST" id="mappingForm">
@@ -136,18 +137,65 @@
             
             <div class="row mb-3">
                 <div class="col-md-12">
-                    <label for="trendyol_category_id" class="form-label">Trendyol Kategorisi <span class="text-danger">*</span></label>
-                    <select name="trendyol_category_id" id="trendyol_category_id" class="form-select select2" required style="width: 100%;">
-                        <option value="">-- Trendyol kategorisi arayın veya seçin --</option>
-                        @foreach($trendyolCategories as $trendyolCategory)
-                            @php
-                                $catId = is_array($trendyolCategory) ? $trendyolCategory['id'] : $trendyolCategory->id;
-                                $catPath = is_array($trendyolCategory) ? ($trendyolCategory['path'] ?? $trendyolCategory['name']) : ($trendyolCategory->path ?? $trendyolCategory->name);
-                                $catLeaf = is_array($trendyolCategory) ? ($trendyolCategory['leaf'] ?? false) : ($trendyolCategory->leaf ?? false);
-                                // Boolean'ı kesinlikle string'e çevir
-                                $leafString = $catLeaf ? '1' : '0';
-                            @endphp
-                            <option value="{{ $catId }}" 
+                    <label for="category_search" class="form-label">Kategori Ara</label>
+                    <input type="text" 
+                           class="form-control form-control-lg" 
+                           id="category_search" 
+                           placeholder="Kategori adı veya yol yazın... (örn: Giyim, Elbise, Kadın > Giyim)" 
+                           autocomplete="off">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i> En az 2 karakter girin, eşleşen kategoriler aşağıda listelenecek. Sadece ✓ işaretli LEAF kategoriler seçilebilir.
+                    </small>
+                </div>
+            </div>
+
+            <!-- Arama Sonuçları -->
+            <div id="search_results" class="mb-3" style="display: none;">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <strong>Arama Sonuçları</strong> <span id="result_count" class="badge bg-primary">0</span>
+                        <small class="text-muted ms-2">(Sadece LEAF kategoriler gösteriliyor)</small>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="results_list" style="max-height: 500px; overflow-y: auto;">
+                            <!-- Sonuçlar buraya gelecek -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seçilen Kategori -->
+            <div id="selected_category_section" style="display: none;">
+                <div class="alert alert-success">
+                    <h6><i class="bi bi-check-circle"></i> Seçilen Kategori:</h6>
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <strong id="selected_category_path"></strong>
+                            <br>
+                            <small class="text-muted">
+                                ID: <span id="selected_category_id"></span>
+                                <span class="badge bg-success ms-2">✓ LEAF Kategori</span>
+                            </small>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger" id="clear_selection">
+                            <i class="bi bi-x-circle"></i> Temizle
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <input type="hidden" name="trendyol_category_id" id="trendyol_category_id">
+            <input type="hidden" name="trendyol_category_name" id="trendyol_category_name">
+            <input type="hidden" name="trendyol_category_path" id="trendyol_category_path">
+
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg" id="save_button" disabled>
+                    <i class="bi bi-save"></i> Eşleştirmeyi Kaydet
+                </button>
+            </div>
+        </form>
+    </div>
+</div> 
                                     data-leaf="{{ $leafString }}"
                                     data-category-name="{{ $catPath }}"
                                     {{ old('trendyol_category_id', $category->categoryMapping->trendyol_category_id ?? '') == $catId ? 'selected' : '' }}>
@@ -178,78 +226,171 @@
 @push('scripts')
 <script>
 $(document).ready(function() {
-    // Select2 başlat
-    $('#trendyol_category_id').select2({
-        theme: 'bootstrap-5',
-        placeholder: '-- Trendyol kategorisi arayın veya seçin --',
-        allowClear: true,
-        language: {
-            noResults: function() {
-                return "Sonuç bulunamadı";
-            },
-            searching: function() {
-                return "Aranıyor...";
-            },
-            inputTooShort: function() {
-                return "En az 1 karakter girin";
-            }
-        },
-        width: '100%',
-        templateResult: formatCategory,
-        templateSelection: formatCategorySelection
-    });
-
-    // Kategori görünümünü özelleştir (dropdown'da)
-    function formatCategory(category) {
-        if (!category.id) {
-            return category.text;
-        }
-        
-        const $category = $(category.element);
-        const isLeaf = $category.attr('data-leaf') === '1';
-        const text = category.text;
-        
-        if (isLeaf) {
-            return $('<span><i class="bi bi-check-circle text-success"></i> ' + text + '</span>');
-        }
-        
-        return $('<span class="text-muted">' + text + '</span>');
-    }
-
-    // Seçilen kategori görünümü
-    function formatCategorySelection(category) {
-        return category.text;
-    }
-
-    // Kategori seçildiğinde
-    $('#trendyol_category_id').on('change', function() {
-        const selectedOption = $(this).find(':selected');
-        
-        if (selectedOption.val()) {
-            // Category name'i doldur
-            const catName = selectedOption.data('category-name') || selectedOption.text().split(' (ID:')[0].trim();
-            $('#trendyol_category_name').val(catName);
-            
-            // Leaf kontrolü - 1 = true, 0 = false
-            const leafAttr = selectedOption.attr('data-leaf');
-            const isLeaf = (leafAttr === '1');
-            
-            console.log('Category name:', catName);
-            console.log('Leaf attribute:', leafAttr);
-            console.log('Is leaf:', isLeaf);
-            
-            if (!isLeaf) {
-                alert('⚠️ Uyarı: Seçtiğiniz kategori son seviye (leaf) kategori değil.\n\nTrendyol\'a ürün gönderimi için son seviye kategori (✓ işaretli) seçmeniz gerekmektedir.');
-            }
-        } else {
-            $('#trendyol_category_name').val('');
-        }
-    });
+    // Trendyol kategorileri (session'dan - düz liste)
+    const trendyolCategories = @json($trendyolCategories);
     
-    // Sayfa yüklendiğinde mevcut seçimi kontrol et
-    if ($('#trendyol_category_id').val()) {
-        $('#trendyol_category_id').trigger('change');
+    console.log('Yüklü kategori sayısı:', trendyolCategories.length);
+
+    // Kategori arama
+    let searchTimeout;
+    $('#category_search').on('input', function() {
+        clearTimeout(searchTimeout);
+        const query = $(this).val().trim().toLowerCase();
+        
+        if (query.length < 2) {
+            $('#search_results').hide();
+            return;
+        }
+
+        searchTimeout = setTimeout(function() {
+            searchCategories(query);
+        }, 300); // 300ms debounce
+    });
+
+    function searchCategories(query) {
+        // Sadece LEAF kategorileri ara
+        const results = trendyolCategories.filter(cat => {
+            if (!cat.leaf) return false; // Sadece leaf kategoriler
+            
+            const catName = (cat.name || '').toLowerCase();
+            const catPath = (cat.path || '').toLowerCase();
+            
+            return catName.includes(query) || catPath.includes(query);
+        });
+
+        displayResults(results, query);
     }
+
+    function displayResults(results, query) {
+        const $resultsList = $('#results_list');
+        $resultsList.empty();
+
+        if (results.length === 0) {
+            $resultsList.html(`
+                <div class="p-3 text-center text-muted">
+                    <i class="bi bi-search"></i> 
+                    "<strong>${escapeHtml(query)}</strong>" için LEAF kategori bulunamadı
+                </div>
+            `);
+        } else {
+            results.slice(0, 100).forEach(cat => { // İlk 100 sonuç
+                const catId = cat.id;
+                const catPath = cat.path || cat.name;
+                const highlightedPath = highlightMatch(catPath, query);
+
+                $resultsList.append(`
+                    <a href="#" class="list-group-item list-group-item-action search-result-item" 
+                       data-category-id="${catId}" 
+                       data-category-path="${escapeHtml(catPath)}"
+                       data-category-name="${escapeHtml(cat.name)}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div>${highlightedPath}</div>
+                                <small class="text-muted">ID: ${catId} <span class="badge bg-success ms-1">✓ LEAF</span></small>
+                            </div>
+                            <i class="bi bi-arrow-right-circle text-primary ms-2"></i>
+                        </div>
+                    </a>
+                `);
+            });
+
+            if (results.length > 100) {
+                $resultsList.append(`
+                    <div class="p-2 text-center text-muted bg-light">
+                        <small>+${results.length - 100} daha fazla sonuç. Daha spesifik arama yapın.</small>
+                    </div>
+                `);
+            }
+        }
+
+        $('#result_count').text(results.length);
+        $('#search_results').show();
+    }
+
+    function highlightMatch(text, query) {
+        const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+        return escapeHtml(text).replace(regex, '<mark>$1</mark>');
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // Arama sonucundan kategori seçme
+    $(document).on('click', '.search-result-item', function(e) {
+        e.preventDefault();
+        const catId = $(this).data('category-id');
+        const catPath = $(this).data('category-path');
+        const catName = $(this).data('category-name');
+        
+        selectCategory(catId, catPath, catName);
+    });
+
+    function selectCategory(catId, catPath, catName) {
+        // Hidden input'lara yaz
+        $('#trendyol_category_id').val(catId);
+        $('#trendyol_category_name').val(catName);
+        $('#trendyol_category_path').val(catPath);
+        
+        // Seçili kategori göster
+        $('#selected_category_id').text(catId);
+        $('#selected_category_path').text(catPath);
+        $('#selected_category_section').show();
+        
+        // Arama sonuçlarını gizle
+        $('#search_results').hide();
+        $('#category_search').val('');
+        
+        // Kaydet butonunu aktif et
+        $('#save_button').prop('disabled', false);
+        
+        // Bildirim göster
+        showNotification('success', `<strong>${catPath}</strong> seçildi!`);
+    }
+
+    // Seçimi temizle
+    $('#clear_selection').on('click', function() {
+        $('#trendyol_category_id').val('');
+        $('#trendyol_category_name').val('');
+        $('#trendyol_category_path').val('');
+        $('#selected_category_section').hide();
+        $('#save_button').prop('disabled', true);
+        $('#category_search').val('').focus();
+    });
+
+    // Bildirim göster
+    function showNotification(type, message) {
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-info';
+        const notification = $(`
+            <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+                 style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
+                <i class="bi bi-check-circle"></i> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `);
+        $('body').append(notification);
+        setTimeout(() => notification.remove(), 3000);
+    }
+
+    // Sayfa yüklendiğinde mevcut eşleştirme varsa göster
+    @if($category->trendyolMapping)
+        selectCategory(
+            '{{ $category->trendyolMapping->trendyol_category_id }}',
+            '{{ $category->trendyolMapping->trendyol_category_path ?? $category->trendyolMapping->trendyol_category_name }}',
+            '{{ $category->trendyolMapping->trendyol_category_name }}'
+        );
+    @endif
+
+    // Trendyol kategorisi yüklenmemişse uyarı
+    @if(count($trendyolCategories) === 0)
+        $('#category_search').prop('disabled', true).attr('placeholder', 'Önce "Trendyol Kategorilerini Yükle" butonuna tıklayın');
+    @endif
 });
 </script>
 @endpush

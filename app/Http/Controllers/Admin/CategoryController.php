@@ -115,17 +115,21 @@ class CategoryController extends Controller
 
     /**
      * Trendyol kategorilerini senkronize eder
-     * Artık veritabanına kaydetmiyor, sadece API'den çekip gösteriyor
+     * Public API - Authentication gerektirmez
+     * Kategori ağacını düz liste haline getirir (arama için)
      */
     public function syncTrendyolCategories()
     {
-        $result = $this->trendyolService->getCategories();
+        set_time_limit(300); // 5 dakika timeout
+        
+        // Düz liste halinde kategorileri al (arama için)
+        $result = $this->trendyolService->getFlatCategories();
 
         if (!$result['success']) {
-            return back()->with('error', 'Trendyol kategorileri alınamadı: ' . $result['message']);
+            return back()->with('error', 'Trendyol kategorileri alınamadı: ' . ($result['message'] ?? 'Bilinmeyen hata'));
         }
 
-        // Artık veritabanına kaydetmiyoruz, sadece session'a alıyoruz
+        // Session'a kaydet (eşleştirme için kullanılacak)
         session(['trendyol_categories' => $result['data']['categories'] ?? []]);
 
         $count = count($result['data']['categories'] ?? []);
@@ -137,12 +141,12 @@ class CategoryController extends Controller
      */
     public function mapping(Category $category)
     {
-        // Trendyol kategorilerini API'den çek (veya session'dan al)
+        // Trendyol kategorilerini session'dan al (düz liste)
         $trendyolCategories = session('trendyol_categories', []);
         
-        // Eğer session boşsa API'den çek
+        // Eğer session boşsa API'den düz liste halinde çek
         if (empty($trendyolCategories)) {
-            $result = $this->trendyolService->getCategories();
+            $result = $this->trendyolService->getFlatCategories();
             if ($result['success']) {
                 $trendyolCategories = $result['data']['categories'] ?? [];
                 session(['trendyol_categories' => $trendyolCategories]);
