@@ -62,14 +62,18 @@
         <button type="submit" class="btn btn-success btn-lg">
             <i class="bi bi-check-circle"></i> Güncelle
         </button>
-        <form action="{{ route('admin.options.destroy', $option) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu opsiyonu silmek istediğinizden emin misiniz?')">
-            @csrf
-            @method('DELETE')
-            <button type="submit" class="btn btn-danger btn-lg">
-                <i class="bi bi-trash"></i> Sil
-            </button>
-        </form>
+        <a href="{{ route('admin.options.index') }}" class="btn btn-secondary btn-lg">
+            <i class="bi bi-x-circle"></i> İptal
+        </a>
     </div>
+</form>
+
+<form action="{{ route('admin.options.destroy', $option) }}" method="POST" class="mt-3" onsubmit="return confirm('Bu opsiyonu silmek istediğinizden emin misiniz?')">
+    @csrf
+    @method('DELETE')
+    <button type="submit" class="btn btn-danger btn-lg">
+        <i class="bi bi-trash"></i> Opsiyonu Sil
+    </button>
 </form>
 
 @push('scripts')
