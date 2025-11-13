@@ -54,9 +54,9 @@
                             <a href="{{ route('admin.brands.mapping', $brand) }}" class="btn btn-info" title="Trendyol Eşleştir">
                                 <i class="bi bi-link-45deg"></i>
                             </a>
-                            <button class="btn btn-primary" onclick="editBrand({{ $brand->id }}, '{{ $brand->name }}', '{{ $brand->slug }}')">
+                            <a href="{{ route('admin.brands.edit', $brand) }}" class="btn btn-primary" title="Düzenle">
                                 <i class="bi bi-pencil"></i>
-                            </button>
+                            </a>
                             <form action="{{ route('admin.brands.destroy', $brand) }}" method="POST" class="d-inline" onsubmit="return confirm('Markayı silmek istediğinizden emin misiniz?')">
                                 @csrf
                                 @method('DELETE')
