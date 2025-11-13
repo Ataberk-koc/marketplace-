@@ -13,8 +13,6 @@ table.variants-table th{background:#f8f9fa;padding:10px;font-size:12px;border-bo
 table.variants-table td{padding:8px;border-bottom:1px solid #eee;vertical-align:middle}
 table.variants-table input{padding:6px 8px;font-size:13px}
 table.variants-table tr:hover{background:#f8f9fa}
-.option-inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.option-inline .form-check-label{margin-bottom:0}
 </style>
 @endpush
 @section('content')
@@ -44,14 +42,13 @@ table.variants-table tr:hover{background:#f8f9fa}
 </div></div></div>
 </div>
 <div class="tab-pane fade" id="options">
-<div class="card"><div class="card-header bg-light"><h5 class="mb-0">Beden seçin (otomatik varyantlar oluşturulacak)</h5></div>
+<div class="card"><div class="card-header bg-light"><h5 class="mb-0">Seçenekler</h5><small class="text-muted">Ürün için seçenekleri işaretleyin</small></div>
 <div class="card-body">
 @foreach($options as $option)
 <div class="option-selector">
-<div class="option-inline">
-<input type="checkbox" class="form-check-input option-checkbox" id="opt_{{$option->id}}" value="{{$option->id}}" data-option-name="{{$option->name}}" data-option-type="{{$option->type}}">
-<label for="opt_{{$option->id}}" class="form-check-label"><strong>{{$option->name}}</strong></label>
-<div class="option-values" id="values_{{$option->id}}" style="display:none">
+<h6><input type="checkbox" class="form-check-input option-checkbox" id="opt_{{$option->id}}" value="{{$option->id}}" data-option-name="{{$option->name}}" data-option-type="{{$option->type}}">
+<label for="opt_{{$option->id}}" class="form-check-label ms-2"><strong>{{$option->name}}</strong></label></h6>
+<div class="option-values mt-3" id="values_{{$option->id}}" style="display:none">
 @if($option->type==='color')
 @foreach($option->activeValues as $val)
 <input type="checkbox" class="option-value-checkbox" id="val_{{$val->id}}" value="{{$val->id}}" data-option-id="{{$option->id}}" data-value-name="{{$val->value}}" data-color-code="{{$val->color_code}}">
@@ -65,16 +62,16 @@ table.variants-table tr:hover{background:#f8f9fa}
 @endif
 </div>
 </div>
-</div>
 @endforeach
 @if($options->isEmpty())<div class="alert alert-warning">Opsiyon yok. <a href="{{route('admin.options.create')}}" target="_blank">Ekleyin</a></div>@endif
 </div></div>
 </div>
 <div class="tab-pane fade" id="variants">
-<div class="card"><div class="card-header bg-light">
-<div><h5 class="mb-0">Varyantlar</h5><small class="text-muted">Seçeneklerden otomatik oluşturuldu</small></div>
+<div class="card"><div class="card-header bg-light d-flex justify-content-between align-items-center">
+<div><h5 class="mb-0">Varyantlar</h5><small class="text-muted">Seçeneklerden varyant oluştur</small></div>
+<button type="button" class="btn btn-primary" id="generateVariantsBtn"><i class="bi bi-gear"></i> Oluştur</button>
 </div>
-<div class="card-body"><div id="variantsContainer"><div class="alert alert-info"><i class="bi bi-info-circle"></i> Seçenekler sekmesinden beden/renk seçtiğinizde otomatik oluşturulacak</div></div></div>
+<div class="card-body"><div id="variantsContainer"><div class="alert alert-info"><i class="bi bi-info-circle"></i> Önce Seçenekler sekmesinden seçim yapın</div></div></div>
 </div>
 </div>
 <div class="tab-pane fade" id="attributes">
@@ -96,61 +93,20 @@ table.variants-table tr:hover{background:#f8f9fa}
 @push('scripts')
 <script>
 $(document).ready(function(){
-// Opsiyon checkbox değiştiğinde - bedenleri direkt göster
-$('.option-checkbox').on('change',function(){
-const id=$(this).val();
-const div=$('#values_'+id);
-if($(this).is(':checked')){
-div.show(); // slideDown yerine show kullan - anında göster
-}else{
-div.hide();
-div.find('.option-value-checkbox').prop('checked',false);
-}
-generateVariantsAuto();
-});
-
-// Opsiyon değeri değiştiğinde
-$(document).on('change','.option-value-checkbox',function(){
-generateVariantsAuto();
-});
-
-// Otomatik varyant oluşturma
-function generateVariantsAuto(){
-const opts={};
-$('.option-checkbox:checked').each(function(){
-const id=$(this).val();
-const name=$(this).data('option-name');
-const type=$(this).data('option-type');
-const vals=[];
-$('#values_'+id+' .option-value-checkbox:checked').each(function(){
-vals.push({id:$(this).val(),name:$(this).data('value-name'),color:$(this).data('color-code')||null})
-});
-if(vals.length>0)opts[id]={name:name,type:type,values:vals}
-});
-
-if(Object.keys(opts).length===0){
-$('#variantsContainer').html('<div class="alert alert-info"><i class="bi bi-info-circle"></i> Seçenekler sekmesinden beden/renk seçtiğinizde otomatik oluşturulacak</div>');
-return;
-}
-
+$('.option-checkbox').on('change',function(){const id=$(this).val();const div=$('#values_'+id);$(this).is(':checked')?div.slideDown():(div.slideUp(),div.find('.option-value-checkbox').prop('checked',false))});
+$('#generateVariantsBtn').on('click',function(){
+const opts={};$('.option-checkbox:checked').each(function(){const id=$(this).val();const name=$(this).data('option-name');const type=$(this).data('option-type');const vals=[];$('#values_'+id+' .option-value-checkbox:checked').each(function(){vals.push({id:$(this).val(),name:$(this).data('value-name'),color:$(this).data('color-code')||null})});if(vals.length>0)opts[id]={name:name,type:type,values:vals}});
+if(Object.keys(opts).length===0){alert('Opsiyon seçin!');$('#options-tab').tab('show');return}
 const arrays=Object.values(opts).map(o=>o.values);
 const combos=arrays.reduce((a,ar)=>a.flatMap(x=>ar.map(y=>[...(Array.isArray(x)?x:[x]),y])),[[]]);
-
 let html='<div class="table-responsive"><table class="table table-bordered table-hover variants-table"><thead><tr><th>#</th>';
 Object.values(opts).forEach(o=>html+='<th>'+o.name+'</th>');
 html+='<th>Fiyat</th><th>İnd.Fiyat</th><th>Maliyet</th><th>Stok</th><th>SKU</th><th>Barkod</th><th>TNY Kodu</th><th>Ent.Kodu</th><th></th></tr></thead><tbody>';
-
 combos.forEach((c,i)=>{
 const name=c.map((v,j)=>Object.values(opts)[j].name+': '+v.name).join(' - ');
 const json=JSON.stringify(c.map(v=>({option_value_id:v.id})));
 html+='<tr><td>'+(i+1)+'</td>';
-c.forEach(v=>{
-if(v.color){
-html+='<td><div style="display:inline-block;width:20px;height:20px;background:'+v.color+';border:1px solid #ddd;border-radius:3px;margin-right:5px;vertical-align:middle"></div>'+v.name+'</td>';
-}else{
-html+='<td><span class="badge bg-secondary">'+v.name+'</span></td>';
-}
-});
+c.forEach(v=>{if(v.color)html+='<td><div style="display:inline-block;width:20px;height:20px;background:'+v.color+';border:1px solid #ddd;border-radius:3px;margin-right:5px;vertical-align:middle"></div>'+v.name+'</td>';else html+='<td><span class="badge bg-secondary">'+v.name+'</span></td>'});
 html+='<input type="hidden" name="variants['+i+'][option_values]" value=\''+json+'\'>';
 html+='<input type="hidden" name="variants['+i+'][variant_name]" value="'+name+'">';
 html+='<td><input type="number" class="form-control form-control-sm" name="variants['+i+'][price]" placeholder="0.00" step="0.01" required></td>';
@@ -161,50 +117,11 @@ html+='<td><input type="text" class="form-control form-control-sm" name="variant
 html+='<td><input type="text" class="form-control form-control-sm" name="variants['+i+'][barcode]" placeholder="Barkod" required></td>';
 html+='<td><input type="text" class="form-control form-control-sm" name="variants['+i+'][tny_code]" placeholder="TNY"></td>';
 html+='<td><input type="text" class="form-control form-control-sm" name="variants['+i+'][integration_code]" placeholder="Kod"></td>';
-html+='<td><button type="button" class="btn btn-sm btn-danger remove-variant"><i class="bi bi-trash"></i></button></td></tr>';
-});
-
+html+='<td><button type="button" class="btn btn-sm btn-danger remove-variant"><i class="bi bi-trash"></i></button></td></tr>'});
 html+='</tbody></table></div><div class="alert alert-success mt-3"><i class="bi bi-check-circle"></i> <strong>'+combos.length+'</strong> varyant oluşturuldu</div>';
-$('#variantsContainer').html(html);
-
-// Varyantlar sekmesine geç
-if(combos.length>0){
-$('#variants-tab').tab('show');
-}
-}
-
-$(document).on('click','.remove-variant',function(){
-if(confirm('Silmek istediğinizden emin misiniz?'))$(this).closest('tr').remove()
-});
-
-$('#productForm').on('submit',function(e){
-if(!$('#name').val().trim()){
-e.preventDefault();
-alert('Ürün adı zorunlu!');
-$('#general-tab').tab('show');
-return false
-}
-if(!$('#model_code').val().trim()){
-e.preventDefault();
-alert('Model kodu zorunlu!');
-$('#general-tab').tab('show');
-return false
-}
-if(!$('#category_id').val()){
-e.preventDefault();
-alert('Kategori seçin!');
-$('#general-tab').tab('show');
-return false
-}
-if($('table.variants-table tbody tr').length===0){
-e.preventDefault();
-alert('Varyant oluşturun!');
-$('#options-tab').tab('show');
-return false
-}
-$(this).find('button[type="submit"]').prop('disabled',true).html('<i class="bi bi-hourglass-split"></i> Kaydediliyor...')
-});
-
+$('#variantsContainer').html(html)});
+$(document).on('click','.remove-variant',function(){if(confirm('Silmek istediğinizden emin misiniz?'))$(this).closest('tr').remove()});
+$('#productForm').on('submit',function(e){if(!$('#name').val().trim()){e.preventDefault();alert('Ürün adı zorunlu!');$('#general-tab').tab('show');return false}if(!$('#model_code').val().trim()){e.preventDefault();alert('Model kodu zorunlu!');$('#general-tab').tab('show');return false}if(!$('#category_id').val()){e.preventDefault();alert('Kategori seçin!');$('#general-tab').tab('show');return false}if($('table.variants-table tbody tr').length===0){e.preventDefault();alert('Varyant oluşturun!');$('#variants-tab').tab('show');return false}$(this).find('button[type="submit"]').prop('disabled',true).html('<i class="bi bi-hourglass-split"></i> Kaydediliyor...')});
 $('#category_id').select2({theme:'bootstrap-5'});
 });
 </script>

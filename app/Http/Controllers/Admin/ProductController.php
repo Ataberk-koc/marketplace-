@@ -117,7 +117,7 @@ class ProductController extends Controller
             $product = Product::create([
                 'user_id' => auth()->id(),
                 'name' => $request->name,
-                'sku' => $request->model_code,
+                'sku' => $request->model_code . '-' . time(), // Benzersiz SKU için timestamp ekle
                 'description' => $request->description,
                 'category_id' => $request->category_id,
                 'brand_id' => $request->brand_id,
