@@ -26,12 +26,36 @@
         .sidebar .nav-link {
             color: rgba(255,255,255,.75);
             padding: .75rem 1rem;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
         }
         .sidebar .nav-link:hover {
             color: #fff;
             background-color: rgba(255,255,255,.1);
         }
         .sidebar .nav-link.active {
+            color: #fff;
+            background-color: #0d6efd;
+        }
+        .sidebar .nav-link i.bi-chevron-down {
+            margin-left: auto;
+            font-size: 0.8rem;
+            transition: transform 0.3s;
+        }
+        .sidebar .nav-link[aria-expanded="true"] i.bi-chevron-down {
+            transform: rotate(180deg);
+        }
+        .sidebar .collapse .nav-link {
+            padding: .5rem 1rem;
+            font-size: 0.9rem;
+            color: rgba(255,255,255,.65);
+        }
+        .sidebar .collapse .nav-link:hover {
+            color: #fff;
+            background-color: rgba(255,255,255,.05);
+        }
+        .sidebar .collapse .nav-link.active {
             color: #fff;
             background-color: #0d6efd;
         }
@@ -107,15 +131,57 @@
                                 <i class="bi bi-sliders"></i> Opsiyonlar
                             </a>
                         </li>
+                        
+                        <!-- Ürünler Grup Menüsü -->
                         <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('admin.products.*') ? 'active' : '' }}" href="{{ route('admin.products.index') }}">
+                            <a class="nav-link {{ request()->is('admin/products*') || request()->is('admin/stock*') ? 'active' : '' }}" 
+                               href="#productsSubmenu" 
+                               data-bs-toggle="collapse" 
+                               aria-expanded="{{ request()->is('admin/products*') || request()->is('admin/stock*') ? 'true' : 'false' }}">
                                 <i class="bi bi-box-seam"></i> Ürünler
+                                <i class="bi bi-chevron-down ms-auto"></i>
                             </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('admin.stock.*') ? 'active' : '' }}" href="{{ route('admin.stock.index') }}">
-                                <i class="bi bi-boxes"></i> Stok Takibi
-                            </a>
+                            <div class="collapse {{ request()->is('admin/products*') || request()->is('admin/stock*') ? 'show' : '' }}" id="productsSubmenu">
+                                <ul class="nav flex-column ms-3">
+                                    <li class="nav-item">
+                                        <a class="nav-link {{ request()->routeIs('admin.products.index') ? 'active' : '' }}" 
+                                           href="{{ route('admin.products.index') }}">
+                                            Ürünler
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="#">
+                                            Satın Alma
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="#">
+                                            Transferler
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link {{ request()->routeIs('admin.stock.*') ? 'active' : '' }}" 
+                                           href="{{ route('admin.stock.index') }}">
+                                            Stok Sayımı
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="#">
+                                            Tanımlamalar
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="#">
+                                            Fiyat Listesi
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="#">
+                                            Ürün Barkod Etiketi
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('admin.orders.*') ? 'active' : '' }}" href="{{ route('admin.orders.index') }}">
