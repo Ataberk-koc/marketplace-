@@ -227,39 +227,39 @@ class TrendyolService
             'data' => [
                 'categories' => [
                     // Ana Kategoriler
-                    ['id' => 1, 'name' => 'Kadın', 'parentId' => null, 'subCategories' => []],
-                    ['id' => 2, 'name' => 'Erkek', 'parentId' => null, 'subCategories' => []],
-                    ['id' => 3, 'name' => 'Çocuk', 'parentId' => null, 'subCategories' => []],
-                    ['id' => 4, 'name' => 'Ev & Yaşam', 'parentId' => null, 'subCategories' => []],
-                    ['id' => 5, 'name' => 'Süpermarket', 'parentId' => null, 'subCategories' => []],
+                    ['id' => 1, 'name' => 'Kadın', 'path' => 'Kadın', 'parentId' => null, 'leaf' => false, 'subCategories' => []],
+                    ['id' => 2, 'name' => 'Erkek', 'path' => 'Erkek', 'parentId' => null, 'leaf' => false, 'subCategories' => []],
+                    ['id' => 3, 'name' => 'Çocuk', 'path' => 'Çocuk', 'parentId' => null, 'leaf' => false, 'subCategories' => []],
+                    ['id' => 4, 'name' => 'Ev & Yaşam', 'path' => 'Ev & Yaşam', 'parentId' => null, 'leaf' => false, 'subCategories' => []],
+                    ['id' => 5, 'name' => 'Süpermarket', 'path' => 'Süpermarket', 'parentId' => null, 'leaf' => false, 'subCategories' => []],
                     
                     // Kadın Alt Kategorileri
-                    ['id' => 101, 'name' => 'Giyim', 'parentId' => 1, 'subCategories' => []],
-                    ['id' => 102, 'name' => 'Ayakkabı', 'parentId' => 1, 'subCategories' => []],
-                    ['id' => 103, 'name' => 'Aksesuar', 'parentId' => 1, 'subCategories' => []],
-                    ['id' => 104, 'name' => 'Çanta', 'parentId' => 1, 'subCategories' => []],
+                    ['id' => 101, 'name' => 'Giyim', 'path' => 'Kadın > Giyim', 'parentId' => 1, 'leaf' => false, 'subCategories' => []],
+                    ['id' => 102, 'name' => 'Ayakkabı', 'path' => 'Kadın > Ayakkabı', 'parentId' => 1, 'leaf' => false, 'subCategories' => []],
+                    ['id' => 103, 'name' => 'Aksesuar', 'path' => 'Kadın > Aksesuar', 'parentId' => 1, 'leaf' => false, 'subCategories' => []],
+                    ['id' => 104, 'name' => 'Çanta', 'path' => 'Kadın > Çanta', 'parentId' => 1, 'leaf' => false, 'subCategories' => []],
                     
-                    // Kadın > Giyim Alt Kategorileri
-                    ['id' => 1001, 'name' => 'Elbise', 'parentId' => 101, 'subCategories' => []],
-                    ['id' => 1002, 'name' => 'Bluz', 'parentId' => 101, 'subCategories' => []],
-                    ['id' => 1003, 'name' => 'Pantolon', 'parentId' => 101, 'subCategories' => []],
-                    ['id' => 1004, 'name' => 'Etek', 'parentId' => 101, 'subCategories' => []],
-                    ['id' => 1005, 'name' => 'Kazak', 'parentId' => 101, 'subCategories' => []],
-                    ['id' => 1006, 'name' => 'Mont & Kaban', 'parentId' => 101, 'subCategories' => []],
-                    ['id' => 1007, 'name' => 'Ceket', 'parentId' => 101, 'subCategories' => []],
+                    // Kadın > Giyim Alt Kategorileri (LEAF - Son seviye)
+                    ['id' => 1001, 'name' => 'Elbise', 'path' => 'Kadın > Giyim > Elbise', 'parentId' => 101, 'leaf' => true, 'subCategories' => []],
+                    ['id' => 1002, 'name' => 'Bluz', 'path' => 'Kadın > Giyim > Bluz', 'parentId' => 101, 'leaf' => true, 'subCategories' => []],
+                    ['id' => 1003, 'name' => 'Pantolon', 'path' => 'Kadın > Giyim > Pantolon', 'parentId' => 101, 'leaf' => true, 'subCategories' => []],
+                    ['id' => 1004, 'name' => 'Etek', 'path' => 'Kadın > Giyim > Etek', 'parentId' => 101, 'leaf' => true, 'subCategories' => []],
+                    ['id' => 1005, 'name' => 'Kazak', 'path' => 'Kadın > Giyim > Kazak', 'parentId' => 101, 'leaf' => true, 'subCategories' => []],
+                    ['id' => 1006, 'name' => 'Mont & Kaban', 'path' => 'Kadın > Giyim > Mont & Kaban', 'parentId' => 101, 'leaf' => true, 'subCategories' => []],
+                    ['id' => 1007, 'name' => 'Ceket', 'path' => 'Kadın > Giyim > Ceket', 'parentId' => 101, 'leaf' => true, 'subCategories' => []],
                     
                     // Erkek Alt Kategorileri
-                    ['id' => 201, 'name' => 'Giyim', 'parentId' => 2, 'subCategories' => []],
-                    ['id' => 202, 'name' => 'Ayakkabı', 'parentId' => 2, 'subCategories' => []],
-                    ['id' => 203, 'name' => 'Aksesuar', 'parentId' => 2, 'subCategories' => []],
+                    ['id' => 201, 'name' => 'Giyim', 'path' => 'Erkek > Giyim', 'parentId' => 2, 'leaf' => false, 'subCategories' => []],
+                    ['id' => 202, 'name' => 'Ayakkabı', 'path' => 'Erkek > Ayakkabı', 'parentId' => 2, 'leaf' => false, 'subCategories' => []],
+                    ['id' => 203, 'name' => 'Aksesuar', 'path' => 'Erkek > Aksesuar', 'parentId' => 2, 'leaf' => false, 'subCategories' => []],
                     
-                    // Erkek > Giyim Alt Kategorileri
-                    ['id' => 2001, 'name' => 'Gömlek', 'parentId' => 201, 'subCategories' => []],
-                    ['id' => 2002, 'name' => 'Tişört', 'parentId' => 201, 'subCategories' => []],
-                    ['id' => 2003, 'name' => 'Pantolon', 'parentId' => 201, 'subCategories' => []],
-                    ['id' => 2004, 'name' => 'Kot Pantolon', 'parentId' => 201, 'subCategories' => []],
-                    ['id' => 2005, 'name' => 'Kazak & Hırka', 'parentId' => 201, 'subCategories' => []],
-                    ['id' => 2006, 'name' => 'Mont & Kaban', 'parentId' => 201, 'subCategories' => []],
+                    // Erkek > Giyim Alt Kategorileri (LEAF - Son seviye)
+                    ['id' => 2001, 'name' => 'Gömlek', 'path' => 'Erkek > Giyim > Gömlek', 'parentId' => 201, 'leaf' => true, 'subCategories' => []],
+                    ['id' => 2002, 'name' => 'Tişört', 'path' => 'Erkek > Giyim > Tişört', 'parentId' => 201, 'leaf' => true, 'subCategories' => []],
+                    ['id' => 2003, 'name' => 'Pantolon', 'path' => 'Erkek > Giyim > Pantolon', 'parentId' => 201, 'leaf' => true, 'subCategories' => []],
+                    ['id' => 2004, 'name' => 'Kot Pantolon', 'path' => 'Erkek > Giyim > Kot Pantolon', 'parentId' => 201, 'leaf' => true, 'subCategories' => []],
+                    ['id' => 2005, 'name' => 'Kazak & Hırka', 'path' => 'Erkek > Giyim > Kazak & Hırka', 'parentId' => 201, 'leaf' => true, 'subCategories' => []],
+                    ['id' => 2006, 'name' => 'Mont & Kaban', 'path' => 'Erkek > Giyim > Mont & Kaban', 'parentId' => 201, 'leaf' => true, 'subCategories' => []],
                 ]
             ]
         ];

@@ -54,6 +54,14 @@ class Brand extends Model
     }
 
     /**
+     * Trendyol marka eşleştirmesi (alias)
+     */
+    public function brandMapping()
+    {
+        return $this->hasOne(BrandMapping::class);
+    }
+
+    /**
      * Trendyol markası (mapping üzerinden)
      */
     public function trendyolBrand()

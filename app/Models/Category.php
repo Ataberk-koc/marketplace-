@@ -71,6 +71,14 @@ class Category extends Model
     }
 
     /**
+     * Trendyol kategori eşleştirmesi (alias)
+     */
+    public function categoryMapping()
+    {
+        return $this->hasOne(CategoryMapping::class);
+    }
+
+    /**
      * Trendyol kategorisi (mapping üzerinden)
      */
     public function trendyolCategory()

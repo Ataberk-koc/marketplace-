@@ -27,6 +27,18 @@
     </div>
 @endif
 
+@if(count($trendyolBrands) === 0)
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i> 
+        Henüz Trendyol markası yüklenmemiş. Lütfen "Trendyol Markalarını Senkronize Et" butonuna tıklayın.
+    </div>
+@else
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> 
+        {{ count($trendyolBrands) }} Trendyol markası yüklendi.
+    </div>
+@endif
+
 <div class="row">
     <div class="col-md-6">
         <div class="card">
@@ -100,8 +112,14 @@
 </div>
 
 <div class="card mt-4">
-    <div class="card-header">
+    <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-search"></i> Trendyol Markası Seç</h5>
+        <form action="{{ route('admin.brands.sync-trendyol') }}" method="POST" class="d-inline">
+            @csrf
+            <button type="submit" class="btn btn-sm btn-warning">
+                <i class="bi bi-arrow-repeat"></i> Trendyol Markalarını Senkronize Et
+            </button>
+        </form>
     </div>
     <div class="card-body">
         <form action="{{ route('admin.brands.save-mapping', $brand) }}" method="POST">

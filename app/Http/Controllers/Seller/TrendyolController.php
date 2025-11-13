@@ -63,19 +63,19 @@ class TrendyolController extends Controller
         }
 
         // ADIM 1: Marka Eşleştirme Kontrolü
-        if (!$product->brand || !$product->brand->trendyolMapping) {
+        if (!$product->brand || !$product->brand->brandMapping || !$product->brand->brandMapping->trendyol_brand_id) {
             return back()->with('error', 'Ürün gönderilemedi! Ürünün markası Trendyol markası ile eşleştirilmemiş. Lütfen admin ile iletişime geçin.');
         }
 
         // ADIM 2: Kategori Eşleştirme Kontrolü
-        if (!$product->category || !$product->category->trendyolMapping) {
+        if (!$product->category || !$product->category->categoryMapping || !$product->category->categoryMapping->trendyol_category_id) {
             return back()->with('error', 'Ürün gönderilemedi! Ürünün kategorisi Trendyol kategorisi ile eşleştirilmemiş. Lütfen admin ile iletişime geçin.');
         }
 
         // ADIM 3: Beden Eşleştirme Kontrolü
         $unmappedSizes = [];
         foreach ($product->sizes as $size) {
-            if (!$size->trendyolMapping) {
+            if (!$size->sizeMapping || !$size->sizeMapping->trendyolSize) {
                 $unmappedSizes[] = $size->name;
             }
         }
@@ -111,8 +111,8 @@ class TrendyolController extends Controller
             'barcode' => $product->sku ?? 'SKU' . $product->id,
             'title' => $product->name,
             'productMainId' => $product->id . time(), // Unique ID
-            'brandId' => $product->brand->trendyolMapping->trendyol_brand_id,
-            'categoryId' => $product->category->trendyolMapping->trendyol_category_id,
+            'brandId' => $product->brand->brandMapping->trendyol_brand_id,
+            'categoryId' => $product->category->categoryMapping->trendyol_category_id,
             'quantity' => $product->stock_quantity,
             'stockCode' => $product->sku ?? 'SKU' . $product->id,
             'dimensionalWeight' => 1,
@@ -130,10 +130,11 @@ class TrendyolController extends Controller
 
         // Beden özelliklerini ekle
         foreach ($product->sizes as $size) {
-            if ($size->trendyolMapping) {
+            if ($size->sizeMapping && $size->sizeMapping->trendyolSize) {
+                $trendyolSize = $size->sizeMapping->trendyolSize;
                 $productData['attributes'][] = [
-                    'attributeId' => $size->trendyolMapping->trendyol_size_id,
-                    'attributeValueId' => $size->trendyolMapping->trendyol_size_id,
+                    'attributeId' => (int) $trendyolSize->trendyol_attribute_id,
+                    'attributeValueId' => (int) $trendyolSize->trendyol_attribute_value_id,
                 ];
             }
         }

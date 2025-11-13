@@ -27,7 +27,7 @@ class BrandController extends Controller
      */
     public function index()
     {
-        $brands = Brand::with('trendyolMapping.trendyolBrand')
+        $brands = Brand::with('trendyolMapping')
             ->withCount('products')
             ->latest()
             ->paginate(25);

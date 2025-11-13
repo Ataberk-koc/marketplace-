@@ -137,6 +137,13 @@ class TrendyolController extends Controller
         }
 
         try {
+            // İlişkileri eager load et
+            $mapping->load([
+                'product.brand.brandMapping',
+                'product.category.categoryMapping',
+                'product.sizes.sizeMapping.trendyolSize'
+            ]);
+
             $productData = $this->formatProductForTrendyol($mapping);
             $result = $this->trendyolService->createProduct($productData);
 
@@ -176,15 +183,15 @@ class TrendyolController extends Controller
         $product = $mapping->product;
         
         // ⭐ FAZ 3.1: Marka ID'sini mapping'den al
-        $brandMapping = $product->brand->trendyolMapping;
-        if (!$brandMapping) {
+        $brandMapping = $product->brand->brandMapping;
+        if (!$brandMapping || !$brandMapping->trendyol_brand_id) {
             throw new \Exception("Ürünün markası ({$product->brand->name}) Trendyol ile eşleştirilmemiş!");
         }
         $trendyolBrandId = $brandMapping->trendyol_brand_id;
         
         // ⭐ FAZ 3.2: Kategori ID'sini mapping'den al
-        $categoryMapping = $product->category->trendyolMapping;
-        if (!$categoryMapping) {
+        $categoryMapping = $product->category->categoryMapping;
+        if (!$categoryMapping || !$categoryMapping->trendyol_category_id) {
             throw new \Exception("Ürünün kategorisi ({$product->category->name}) Trendyol ile eşleştirilmemiş!");
         }
         $trendyolCategoryId = $categoryMapping->trendyol_category_id;

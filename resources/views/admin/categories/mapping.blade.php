@@ -116,8 +116,14 @@
 </div>
 
 <div class="card mt-4">
-    <div class="card-header">
+    <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-search"></i> Trendyol Kategorisi Seç</h5>
+        <form action="{{ route('admin.categories.sync-trendyol') }}" method="POST" class="d-inline">
+            @csrf
+            <button type="submit" class="btn btn-sm btn-warning">
+                <i class="bi bi-arrow-repeat"></i> Trendyol Kategorilerini Senkronize Et
+            </button>
+        </form>
     </div>
     <div class="card-body">
         <div class="alert alert-info">
@@ -142,17 +148,24 @@
                     <select name="trendyol_category_id" id="trendyol_category_id" class="form-select" size="15" required>
                         <option value="">-- Trendyol kategorisi seçin --</option>
                         @foreach($trendyolCategories as $trendyolCategory)
-                            <option value="{{ $trendyolCategory->id }}" 
-                                    data-leaf="{{ $trendyolCategory->leaf ? 'true' : 'false' }}"
-                                    {{ old('trendyol_category_id', $category->trendyolMapping->trendyol_category_id ?? '') == $trendyolCategory->id ? 'selected' : '' }}>
-                                {{ $trendyolCategory->path }} 
-                                @if($trendyolCategory->leaf)
+                            @php
+                                $catId = is_array($trendyolCategory) ? $trendyolCategory['id'] : $trendyolCategory->id;
+                                $catPath = is_array($trendyolCategory) ? ($trendyolCategory['path'] ?? $trendyolCategory['name']) : ($trendyolCategory->path ?? $trendyolCategory->name);
+                                $catLeaf = is_array($trendyolCategory) ? ($trendyolCategory['leaf'] ?? false) : ($trendyolCategory->leaf ?? false);
+                            @endphp
+                            <option value="{{ $catId }}" 
+                                    data-leaf="{{ $catLeaf ? 'true' : 'false' }}"
+                                    data-category-name="{{ $catPath }}"
+                                    {{ old('trendyol_category_id', $category->trendyolMapping->trendyol_category_id ?? '') == $catId ? 'selected' : '' }}>
+                                {{ $catPath }} 
+                                @if($catLeaf)
                                     ✓
                                 @endif
-                                (ID: {{ $trendyolCategory->id }})
+                                (ID: {{ $catId }})
                             </option>
                         @endforeach
                     </select>
+                    <input type="hidden" name="trendyol_category_name" id="trendyol_category_name">
                     <small class="text-muted">✓ işareti olan kategoriler son seviye (leaf) kategorilerdir ve ürün gönderimi için uygundur.</small>
                 </div>
             </div>
@@ -171,6 +184,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('search');
     const selectElement = document.getElementById('trendyol_category_id');
+    const categoryNameInput = document.getElementById('trendyol_category_name');
     const options = Array.from(selectElement.options);
 
     searchInput.addEventListener('input', function() {
@@ -189,13 +203,23 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Leaf olmayan kategoriler için uyarı
+    // Leaf olmayan kategoriler için uyarı ve category name doldurma
     selectElement.addEventListener('change', function() {
         const selectedOption = this.options[this.selectedIndex];
+        
+        // Category name'i doldur
+        if (selectedOption.value) {
+            categoryNameInput.value = selectedOption.getAttribute('data-category-name') || '';
+        } else {
+            categoryNameInput.value = '';
+        }
+        
+        // Leaf kontrolü
         if (selectedOption.dataset.leaf === 'false') {
             alert('Uyarı: Seçtiğiniz kategori son seviye (leaf) kategori değil. Trendyol\'a ürün gönderimi için son seviye kategori seçmeniz gerekmektedir.');
         }
     });
+});
 });
 </script>
 @endpush
