@@ -48,7 +48,17 @@ class Product extends Model
 
         static::creating(function ($product) {
             if (empty($product->slug)) {
-                $product->slug = Str::slug($product->name);
+                $baseSlug = Str::slug($product->name);
+                $slug = $baseSlug;
+                $counter = 1;
+                
+                // Benzersiz slug oluştur
+                while (self::where('slug', $slug)->exists()) {
+                    $slug = $baseSlug . '-' . $counter;
+                    $counter++;
+                }
+                
+                $product->slug = $slug;
             }
         });
     }

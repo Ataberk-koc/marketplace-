@@ -71,10 +71,24 @@ table.variants-table tr:hover{background:#f8f9fa}
 </div></div>
 </div>
 <div class="tab-pane fade" id="variants">
-<div class="card"><div class="card-header bg-light">
-<div><h5 class="mb-0">Varyantlar</h5><small class="text-muted">Seçeneklerden otomatik oluşturuldu</small></div>
+<div class="card mb-3"><div class="card-header bg-light">
+<h5 class="mb-0">Manuel Varyant Ekleme</h5>
 </div>
-<div class="card-body"><div id="variantsContainer"><div class="alert alert-info"><i class="bi bi-info-circle"></i> Seçenekler sekmesinden beden/renk seçtiğinizde otomatik oluşturulacak</div></div></div>
+<div class="card-body">
+<div id="addVariantFormContainer">
+<div class="alert alert-info"><i class="bi bi-info-circle"></i> Seçenekler sekmesinden beden/renk seçin</div>
+</div>
+</div>
+</div>
+
+<div class="card"><div class="card-header bg-light">
+<h5 class="mb-0">Eklenen Varyantlar</h5>
+</div>
+<div class="card-body">
+<div id="variantsContainer">
+<div class="alert alert-secondary"><i class="bi bi-info-circle"></i> Henüz varyant eklenmedi</div>
+</div>
+</div>
 </div>
 </div>
 <div class="tab-pane fade" id="attributes">
@@ -96,86 +110,179 @@ table.variants-table tr:hover{background:#f8f9fa}
 @push('scripts')
 <script>
 $(document).ready(function(){
-// Opsiyon checkbox değiştiğinde - bedenleri direkt göster
+updateAddVariantForm(); // İlk yükleme
+
+// Seçenek checkbox değiştiğinde
 $('.option-checkbox').on('change',function(){
 const id=$(this).val();
 const div=$('#values_'+id);
 if($(this).is(':checked')){
-div.show(); // slideDown yerine show kullan - anında göster
+div.show();
 }else{
 div.hide();
 div.find('.option-value-checkbox').prop('checked',false);
 }
-generateVariantsAuto();
+updateAddVariantForm();
 });
 
 // Opsiyon değeri değiştiğinde
 $(document).on('change','.option-value-checkbox',function(){
-generateVariantsAuto();
+updateAddVariantForm();
 });
 
-// Otomatik varyant oluşturma
-function generateVariantsAuto(){
-const opts={};
+let variantCounter = 0;
+
+// Varyant ekleme formunu güncelle
+function updateAddVariantForm(){
+const selectedOptions = [];
 $('.option-checkbox:checked').each(function(){
 const id=$(this).val();
 const name=$(this).data('option-name');
 const type=$(this).data('option-type');
-const vals=[];
+const values=[];
 $('#values_'+id+' .option-value-checkbox:checked').each(function(){
-vals.push({id:$(this).val(),name:$(this).data('value-name'),color:$(this).data('color-code')||null})
+values.push({
+id:$(this).val(),
+name:$(this).data('value-name'),
+color:$(this).data('color-code')||null
 });
-if(vals.length>0)opts[id]={name:name,type:type,values:vals}
+});
+if(values.length>0){
+selectedOptions.push({id:id,name:name,type:type,values:values});
+}
 });
 
-if(Object.keys(opts).length===0){
-$('#variantsContainer').html('<div class="alert alert-info"><i class="bi bi-info-circle"></i> Seçenekler sekmesinden beden/renk seçtiğinizde otomatik oluşturulacak</div>');
+if(selectedOptions.length===0){
+$('#addVariantFormContainer').html('<div class="alert alert-info"><i class="bi bi-info-circle"></i> Seçenekler sekmesinden beden/renk seçin</div>');
 return;
 }
 
-const arrays=Object.values(opts).map(o=>o.values);
-const combos=arrays.reduce((a,ar)=>a.flatMap(x=>ar.map(y=>[...(Array.isArray(x)?x:[x]),y])),[[]]);
-
-let html='<div class="table-responsive"><table class="table table-bordered table-hover variants-table"><thead><tr><th>#</th>';
-Object.values(opts).forEach(o=>html+='<th>'+o.name+'</th>');
-html+='<th>Fiyat</th><th>İnd.Fiyat</th><th>Maliyet</th><th>Stok</th><th>SKU</th><th>Barkod</th><th>TNY Kodu</th><th>Ent.Kodu</th><th></th></tr></thead><tbody>';
-
-combos.forEach((c,i)=>{
-const name=c.map((v,j)=>Object.values(opts)[j].name+': '+v.name).join(' - ');
-const json=JSON.stringify(c.map(v=>({option_value_id:v.id})));
-html+='<tr><td>'+(i+1)+'</td>';
-c.forEach(v=>{
+let html='<div class="card"><div class="card-body"><h6 class="card-title mb-3">Yeni Varyant Ekle</h6><div class="row g-3">';
+selectedOptions.forEach(opt=>{
+html+='<div class="col-md-6"><label class="form-label">'+opt.name+'</label><select class="form-select variant-option" data-option-id="'+opt.id+'" data-option-name="'+opt.name+'">';
+html+='<option value="">Seçiniz</option>';
+opt.values.forEach(v=>{
 if(v.color){
-html+='<td><div style="display:inline-block;width:20px;height:20px;background:'+v.color+';border:1px solid #ddd;border-radius:3px;margin-right:5px;vertical-align:middle"></div>'+v.name+'</td>';
+html+='<option value="'+v.id+'" data-value-name="'+v.name+'" data-color="'+v.color+'">'+v.name+'</option>';
 }else{
-html+='<td><span class="badge bg-secondary">'+v.name+'</span></td>';
+html+='<option value="'+v.id+'" data-value-name="'+v.name+'">'+v.name+'</option>';
 }
 });
-html+='<input type="hidden" name="variants['+i+'][option_values]" value=\''+json+'\'>';
-html+='<input type="hidden" name="variants['+i+'][variant_name]" value="'+name+'">';
-html+='<td><input type="number" class="form-control form-control-sm" name="variants['+i+'][price]" placeholder="0.00" step="0.01" required></td>';
-html+='<td><input type="number" class="form-control form-control-sm" name="variants['+i+'][sale_price]" placeholder="0.00" step="0.01"></td>';
-html+='<td><input type="number" class="form-control form-control-sm" name="variants['+i+'][cost]" placeholder="0.00" step="0.01"></td>';
-html+='<td><input type="number" class="form-control form-control-sm" name="variants['+i+'][stock]" placeholder="0" value="0" required></td>';
-html+='<td><input type="text" class="form-control form-control-sm" name="variants['+i+'][sku]" placeholder="SKU" required></td>';
-html+='<td><input type="text" class="form-control form-control-sm" name="variants['+i+'][barcode]" placeholder="Barkod" required></td>';
-html+='<td><input type="text" class="form-control form-control-sm" name="variants['+i+'][tny_code]" placeholder="TNY"></td>';
-html+='<td><input type="text" class="form-control form-control-sm" name="variants['+i+'][integration_code]" placeholder="Kod"></td>';
-html+='<td><button type="button" class="btn btn-sm btn-danger remove-variant"><i class="bi bi-trash"></i></button></td></tr>';
+html+='</select></div>';
+});
+html+='<div class="col-md-3"><label class="form-label">Fiyat <span class="text-danger">*</span></label><input type="number" class="form-control" id="new_price" step="0.01" placeholder="0.00"></div>';
+html+='<div class="col-md-3"><label class="form-label">İndirimli Fiyat</label><input type="number" class="form-control" id="new_sale_price" step="0.01" placeholder="0.00"></div>';
+html+='<div class="col-md-3"><label class="form-label">Maliyet</label><input type="number" class="form-control" id="new_cost" step="0.01" placeholder="0.00"></div>';
+html+='<div class="col-md-3"><label class="form-label">Stok <span class="text-danger">*</span></label><input type="number" class="form-control" id="new_stock" value="0" placeholder="0"></div>';
+html+='<div class="col-md-3"><label class="form-label">SKU <span class="text-danger">*</span></label><input type="text" class="form-control" id="new_sku" placeholder="SKU"></div>';
+html+='<div class="col-md-3"><label class="form-label">Barkod <span class="text-danger">*</span></label><input type="text" class="form-control" id="new_barcode" placeholder="Barkod"></div>';
+html+='<div class="col-md-3"><label class="form-label">TNY Kodu</label><input type="text" class="form-control" id="new_tny_code" placeholder="TNY"></div>';
+html+='<div class="col-md-3"><label class="form-label">Entegrasyon Kodu</label><input type="text" class="form-control" id="new_integration_code" placeholder="Kod"></div>';
+html+='<div class="col-12"><button type="button" class="btn btn-primary" id="addVariantBtn"><i class="bi bi-plus-circle"></i> Varyant Ekle</button></div>';
+html+='</div></div></div>';
+$('#addVariantFormContainer').html(html);
+}
+
+// Varyant ekle butonu
+$(document).on('click','#addVariantBtn',function(){
+const selectedValues=[];
+const optionNames=[];
+let isValid=true;
+
+$('.variant-option').each(function(){
+const val=$(this).val();
+const optName=$(this).data('option-name');
+const valName=$(this).find('option:selected').data('value-name');
+const color=$(this).find('option:selected').data('color')||null;
+if(!val){
+alert(optName+' seçiniz!');
+isValid=false;
+return false;
+}
+selectedValues.push({option_value_id:val,name:valName,color:color,option_name:optName});
+optionNames.push(optName+': '+valName);
 });
 
-html+='</tbody></table></div><div class="alert alert-success mt-3"><i class="bi bi-check-circle"></i> <strong>'+combos.length+'</strong> varyant oluşturuldu</div>';
-$('#variantsContainer').html(html);
+if(!isValid)return;
 
-// Varyantlar sekmesine geç
-if(combos.length>0){
-$('#variants-tab').tab('show');
-}
+const price=$('#new_price').val();
+const stock=$('#new_stock').val();
+const sku=$('#new_sku').val();
+const barcode=$('#new_barcode').val();
+
+if(!price||!stock||!sku||!barcode){
+alert('Fiyat, stok, SKU ve barkod zorunlu!');
+return;
 }
 
+const variantName=optionNames.join(' - ');
+const optionValuesJson=JSON.stringify(selectedValues.map(v=>({option_value_id:v.option_value_id})));
+
+// Tabloyu oluştur (yoksa)
+if($('.variants-table').length===0){
+let tableHtml='<div class="table-responsive"><table class="table table-bordered table-hover variants-table"><thead><tr><th>#</th>';
+$('.variant-option').each(function(){
+tableHtml+='<th>'+$(this).data('option-name')+'</th>';
+});
+tableHtml+='<th>Fiyat</th><th>İnd.Fiyat</th><th>Maliyet</th><th>Stok</th><th>SKU</th><th>Barkod</th><th>TNY</th><th>Ent.Kodu</th><th></th></tr></thead><tbody></tbody></table></div>';
+$('#variantsContainer').html(tableHtml);
+}
+
+// Yeni satır ekle
+let row='<tr><td>'+($('.variants-table tbody tr').length+1)+'</td>';
+selectedValues.forEach(v=>{
+if(v.color){
+row+='<td><div style="display:inline-block;width:20px;height:20px;background:'+v.color+';border:1px solid #ddd;border-radius:3px;margin-right:5px;vertical-align:middle"></div>'+v.name+'</td>';
+}else{
+row+='<td><span class="badge bg-secondary">'+v.name+'</span></td>';
+}
+});
+
+const idx=variantCounter++;
+row+='<input type="hidden" name="variants['+idx+'][option_values]" value=\''+optionValuesJson+'\'>';
+row+='<input type="hidden" name="variants['+idx+'][variant_name]" value="'+variantName+'">';
+row+='<input type="hidden" name="variants['+idx+'][price]" value="'+price+'">';
+row+='<input type="hidden" name="variants['+idx+'][sale_price]" value="'+($('#new_sale_price').val()||'')+'">';
+row+='<input type="hidden" name="variants['+idx+'][cost]" value="'+($('#new_cost').val()||'')+'">';
+row+='<input type="hidden" name="variants['+idx+'][stock]" value="'+stock+'">';
+row+='<input type="hidden" name="variants['+idx+'][sku]" value="'+sku+'">';
+row+='<input type="hidden" name="variants['+idx+'][barcode]" value="'+barcode+'">';
+row+='<input type="hidden" name="variants['+idx+'][tny_code]" value="'+($('#new_tny_code').val()||'')+'">';
+row+='<input type="hidden" name="variants['+idx+'][integration_code]" value="'+($('#new_integration_code').val()||'')+'">';
+row+='<td>'+price+'₺</td>';
+row+='<td>'+($('#new_sale_price').val()||'-')+'</td>';
+row+='<td>'+($('#new_cost').val()||'-')+'</td>';
+row+='<td>'+stock+'</td>';
+row+='<td>'+sku+'</td>';
+row+='<td>'+barcode+'</td>';
+row+='<td>'+($('#new_tny_code').val()||'-')+'</td>';
+row+='<td>'+($('#new_integration_code').val()||'-')+'</td>';
+row+='<td><button type="button" class="btn btn-sm btn-danger remove-variant"><i class="bi bi-trash"></i></button></td></tr>';
+
+$('.variants-table tbody').append(row);
+
+// Formu temizle
+$('.variant-option').val('');
+$('#new_price,#new_sale_price,#new_cost,#new_sku,#new_barcode,#new_tny_code,#new_integration_code').val('');
+$('#new_stock').val('0');
+
+updateVariantNumbers();
+});
+
+// Varyant sil
 $(document).on('click','.remove-variant',function(){
-if(confirm('Silmek istediğinizden emin misiniz?'))$(this).closest('tr').remove()
+if(confirm('Silmek istediğinizden emin misiniz?')){
+$(this).closest('tr').remove();
+updateVariantNumbers();
+}
 });
+
+// Varyant numaralarını güncelle
+function updateVariantNumbers(){
+$('.variants-table tbody tr').each(function(i){
+$(this).find('td:first').text(i+1);
+});
+}
 
 $('#productForm').on('submit',function(e){
 if(!$('#name').val().trim()){
