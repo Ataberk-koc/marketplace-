@@ -144,6 +144,67 @@
                         </div>
                     </div>
 
+                    <!-- PRODUCT SPECIFICATIONS CARD -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                            <h2 class="text-lg font-semibold text-gray-900">Ürün Özellikleri</h2>
+                            <button type="button" @click="addAttribute" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                                + Özellik Ekle
+                            </button>
+                        </div>
+                        <div class="p-6">
+                            <!-- Hidden Input for JSON -->
+                            <input type="hidden" name="attributes_json" x-model="attributesJSON">
+
+                            <!-- Attributes List -->
+                            <div class="space-y-3">
+                                <template x-for="(attr, index) in product_attributes" :key="index">
+                                    <div class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                                        <div class="flex-1 grid grid-cols-2 gap-3">
+                                            <input type="text" 
+                                                   x-model="attr.name" 
+                                                   placeholder="Özellik adı (örn: Materyal)"
+                                                   class="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                            <input type="text" 
+                                                   x-model="attr.value" 
+                                                   placeholder="Değer (örn: %100 Pamuk)"
+                                                   class="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                        </div>
+                                        <button type="button" 
+                                                @click="removeAttribute(index)"
+                                                class="flex-shrink-0 text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded transition">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- Empty State -->
+                            <div x-show="product_attributes.length === 0" class="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
+                                <svg class="mx-auto h-10 w-10 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                                </svg>
+                                <p class="text-sm">Henüz özellik eklenmedi</p>
+                                <p class="text-xs text-gray-400 mt-1">Materyal, Desen, Yaka Tipi gibi statik özellikler ekleyin</p>
+                            </div>
+
+                            <!-- Info Box -->
+                            <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div class="flex items-start gap-2">
+                                    <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    <div class="text-xs text-blue-800">
+                                        <strong>Not:</strong> Bu bölüm varyant olmayan özellikleri için kullanılır. 
+                                        Renk/Beden gibi varyant oluşturan seçenekler için "Varyant Seçenekleri" bölümünü kullanın.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- MEDIA CARD -->
                     <div class="bg-white shadow rounded-lg">
                         <div class="px-6 py-4 border-b border-gray-200">
@@ -517,10 +578,29 @@ function productCreator() {
         
         options: [],
         variants: [],
+        product_attributes: [],
         
         quickFill: {
             price: null,
             stock: null
+        },
+
+        // Computed property for attributes JSON
+        get attributesJSON() {
+            return JSON.stringify(this.product_attributes.filter(attr => attr.name && attr.value));
+        },
+
+        // Add attribute
+        addAttribute() {
+            this.product_attributes.push({
+                name: '',
+                value: ''
+            });
+        },
+
+        // Remove attribute
+        removeAttribute(index) {
+            this.product_attributes.splice(index, 1);
         },
 
         // Add new option

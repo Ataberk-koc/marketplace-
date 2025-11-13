@@ -192,6 +192,27 @@ class ProductController extends Controller
                 'price' => $minPrice,
             ]);
 
+            // Ürün özelliklerini kaydet (Static Attributes - Materyal, Desen, Yaka Tipi vb.)
+            if ($request->filled('attributes_json')) {
+                $attributesData = json_decode($request->attributes_json, true);
+                
+                if (is_array($attributesData) && count($attributesData) > 0) {
+                    foreach ($attributesData as $attribute) {
+                        if (!empty($attribute['name']) && !empty($attribute['value'])) {
+                            $product->attributes()->create([
+                                'name' => $attribute['name'],
+                                'value' => $attribute['value']
+                            ]);
+                        }
+                    }
+                    
+                    \Log::info('Product attributes saved', [
+                        'product_id' => $product->id,
+                        'attribute_count' => count($attributesData)
+                    ]);
+                }
+            }
+
             \DB::commit();
 
             \Log::info('Product created successfully', ['product_id' => $product->id, 'variant_count' => count($request->variants)]);
