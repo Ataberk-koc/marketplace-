@@ -100,10 +100,15 @@ class ProductController extends Controller
             'brand_id' => 'nullable|exists:brands,id',
             'variants' => 'required|array|min:1',
             'variants.*.option_values' => 'required|string',
+            'variants.*.variant_name' => 'nullable|string',
             'variants.*.sku' => 'required|string|max:100',
             'variants.*.barcode' => 'required|string|max:100',
             'variants.*.price' => 'required|numeric|min:0',
+            'variants.*.sale_price' => 'nullable|numeric|min:0',
+            'variants.*.cost' => 'nullable|numeric|min:0',
             'variants.*.stock' => 'required|integer|min:0',
+            'variants.*.tny_code' => 'nullable|string|max:100',
+            'variants.*.integration_code' => 'nullable|string|max:100',
         ]);
 
         \DB::beginTransaction();
@@ -143,12 +148,16 @@ class ProductController extends Controller
 
                 \App\Models\ProductVariant::create([
                     'product_id' => $product->id,
+                    'variant_name' => $variantData['variant_name'] ?? null,
                     'sku' => $variantData['sku'],
                     'barcode' => $variantData['barcode'],
+                    'tny_code' => $variantData['tny_code'] ?? null,
+                    'integration_code' => $variantData['integration_code'] ?? null,
                     'option_values' => $optionValues,
                     'attributes' => $productAttributes,
                     'price' => $variantData['price'],
-                    'discount_price' => null,
+                    'discount_price' => $variantData['sale_price'] ?? null,
+                    'cost' => $variantData['cost'] ?? null,
                     'stock_quantity' => $variantData['stock'],
                     'reserved_quantity' => 0,
                     'low_stock_threshold' => 5,

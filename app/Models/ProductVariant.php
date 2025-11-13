@@ -16,12 +16,16 @@ class ProductVariant extends Model
         'option_values',
         'price',
         'discount_price',
+        'cost',
         'stock_quantity',
         'reserved_quantity',
         'low_stock_threshold',
         'image',
         'is_active',
         'sort_order',
+        'tny_code',
+        'integration_code',
+        'variant_name',
     ];
 
     protected $casts = [
