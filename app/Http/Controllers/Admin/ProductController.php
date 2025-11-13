@@ -80,9 +80,9 @@ class ProductController extends Controller
     {
         $categories = Category::where('is_active', true)->get();
         $brands = Brand::where('is_active', true)->get();
-        $options = \App\Models\Option::with('activeValues')->where('is_active', true)->orderBy('sort_order')->get();
+        $definedOptions = \App\Models\Option::with('values')->where('is_active', true)->orderBy('sort_order')->get();
 
-        return view('admin.products.create', compact('categories', 'brands', 'options'));
+        return view('admin.products.create', compact('categories', 'brands', 'definedOptions'));
     }
 
     /**
@@ -98,6 +98,7 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'category_id' => 'required|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
+            'variants_json' => 'required|string',
             'variants' => 'required|array|min:1',
             'variants.*.option_values' => 'required|string',
             'variants.*.variant_name' => 'nullable|string',
@@ -142,70 +143,47 @@ class ProductController extends Controller
                 }
             }
 
-            // Varyantları kaydet
-            // Alpine.js'den gelen JSON formatını kontrol et
-            if ($request->has('variants_json')) {
-                $variantsData = json_decode($request->variants_json, true);
-                
-                foreach ($variantsData as $variantData) {
-                    // Alpine.js attributes'ü option_values formatına çevir
-                    $optionValues = [];
-                    if (isset($variantData['attributes'])) {
-                        foreach ($variantData['attributes'] as $optionName => $optionValue) {
-                            $optionValues[] = [
-                                'option_name' => $optionName,
-                                'value' => $optionValue
-                            ];
-                        }
+            // Varyantları kaydet - Hybrid Option System
+            $variantsData = json_decode($request->variants_json, true);
+            
+            if (!$variantsData || count($variantsData) === 0) {
+                throw new \Exception('En az 1 varyant gereklidir!');
+            }
+            
+            foreach ($variantsData as $variantData) {
+                // Build option_values array with full tracking (for Trendyol integration)
+                $optionValues = [];
+                if (isset($variantData['option_mapping'])) {
+                    foreach ($variantData['option_mapping'] as $mapping) {
+                        $optionValues[] = [
+                            'option_id' => $mapping['option_id'] ?? null,
+                            'option_name' => $mapping['option_name'],
+                            'value_id' => $mapping['value_id'] ?? null,
+                            'value' => $mapping['value'],
+                        ];
                     }
-
-                    \App\Models\ProductVariant::create([
-                        'product_id' => $product->id,
-                        'variant_name' => $variantData['name'] ?? null,
-                        'sku' => $variantData['sku'],
-                        'barcode' => $variantData['barcode'] ?? null,
-                        'tny_code' => null,
-                        'integration_code' => null,
-                        'option_values' => $optionValues,
-                        'attributes' => $variantData['attributes'] ?? [],
-                        'price' => $variantData['price'],
-                        'discount_price' => $variantData['discount_price'] ?? null,
-                        'cost' => null,
-                        'stock_quantity' => $variantData['stock'] ?? 0,
-                        'reserved_quantity' => 0,
-                        'low_stock_threshold' => 5,
-                        'is_active' => true,
-                    ]);
-
-                    $totalStock += ($variantData['stock'] ?? 0);
-                    $minPrice = min($minPrice, $variantData['price']);
                 }
-            } else {
-                // Eski format için fallback
-                foreach ($request->variants as $variantData) {
-                    $optionValues = json_decode($variantData['option_values'], true);
 
-                    \App\Models\ProductVariant::create([
-                        'product_id' => $product->id,
-                        'variant_name' => $variantData['variant_name'] ?? null,
-                        'sku' => $variantData['sku'],
-                        'barcode' => $variantData['barcode'],
-                        'tny_code' => $variantData['tny_code'] ?? null,
-                        'integration_code' => $variantData['integration_code'] ?? null,
-                        'option_values' => $optionValues,
-                        'attributes' => $productAttributes,
-                        'price' => $variantData['price'],
-                        'discount_price' => $variantData['sale_price'] ?? null,
-                        'cost' => $variantData['cost'] ?? null,
-                        'stock_quantity' => $variantData['stock'],
-                        'reserved_quantity' => 0,
-                        'low_stock_threshold' => 5,
-                        'is_active' => true,
-                    ]);
+                \App\Models\ProductVariant::create([
+                    'product_id' => $product->id,
+                    'variant_name' => $variantData['name'],
+                    'sku' => $variantData['sku'],
+                    'barcode' => $variantData['barcode'] ?? null,
+                    'tny_code' => null,
+                    'integration_code' => null,
+                    'option_values' => $optionValues,
+                    'attributes' => $variantData['attributes'] ?? [],
+                    'price' => $variantData['price'],
+                    'discount_price' => $variantData['discount_price'] ?: null,
+                    'cost' => null,
+                    'stock_quantity' => $variantData['stock'] ?? 0,
+                    'reserved_quantity' => 0,
+                    'low_stock_threshold' => 5,
+                    'is_active' => true,
+                ]);
 
-                    $totalStock += $variantData['stock'];
-                    $minPrice = min($minPrice, $variantData['price']);
-                }
+                $totalStock += ($variantData['stock'] ?? 0);
+                $minPrice = min($minPrice, $variantData['price']);
             }
 
             // Ana ürünü güncelle
