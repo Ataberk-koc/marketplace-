@@ -143,29 +143,69 @@ class ProductController extends Controller
             }
 
             // Varyantları kaydet
-            foreach ($request->variants as $variantData) {
-                $optionValues = json_decode($variantData['option_values'], true);
+            // Alpine.js'den gelen JSON formatını kontrol et
+            if ($request->has('variants_json')) {
+                $variantsData = json_decode($request->variants_json, true);
+                
+                foreach ($variantsData as $variantData) {
+                    // Alpine.js attributes'ü option_values formatına çevir
+                    $optionValues = [];
+                    if (isset($variantData['attributes'])) {
+                        foreach ($variantData['attributes'] as $optionName => $optionValue) {
+                            $optionValues[] = [
+                                'option_name' => $optionName,
+                                'value' => $optionValue
+                            ];
+                        }
+                    }
 
-                \App\Models\ProductVariant::create([
-                    'product_id' => $product->id,
-                    'variant_name' => $variantData['variant_name'] ?? null,
-                    'sku' => $variantData['sku'],
-                    'barcode' => $variantData['barcode'],
-                    'tny_code' => $variantData['tny_code'] ?? null,
-                    'integration_code' => $variantData['integration_code'] ?? null,
-                    'option_values' => $optionValues,
-                    'attributes' => $productAttributes,
-                    'price' => $variantData['price'],
-                    'discount_price' => $variantData['sale_price'] ?? null,
-                    'cost' => $variantData['cost'] ?? null,
-                    'stock_quantity' => $variantData['stock'],
-                    'reserved_quantity' => 0,
-                    'low_stock_threshold' => 5,
-                    'is_active' => true,
-                ]);
+                    \App\Models\ProductVariant::create([
+                        'product_id' => $product->id,
+                        'variant_name' => $variantData['name'] ?? null,
+                        'sku' => $variantData['sku'],
+                        'barcode' => $variantData['barcode'] ?? null,
+                        'tny_code' => null,
+                        'integration_code' => null,
+                        'option_values' => $optionValues,
+                        'attributes' => $variantData['attributes'] ?? [],
+                        'price' => $variantData['price'],
+                        'discount_price' => $variantData['discount_price'] ?? null,
+                        'cost' => null,
+                        'stock_quantity' => $variantData['stock'] ?? 0,
+                        'reserved_quantity' => 0,
+                        'low_stock_threshold' => 5,
+                        'is_active' => true,
+                    ]);
 
-                $totalStock += $variantData['stock'];
-                $minPrice = min($minPrice, $variantData['price']);
+                    $totalStock += ($variantData['stock'] ?? 0);
+                    $minPrice = min($minPrice, $variantData['price']);
+                }
+            } else {
+                // Eski format için fallback
+                foreach ($request->variants as $variantData) {
+                    $optionValues = json_decode($variantData['option_values'], true);
+
+                    \App\Models\ProductVariant::create([
+                        'product_id' => $product->id,
+                        'variant_name' => $variantData['variant_name'] ?? null,
+                        'sku' => $variantData['sku'],
+                        'barcode' => $variantData['barcode'],
+                        'tny_code' => $variantData['tny_code'] ?? null,
+                        'integration_code' => $variantData['integration_code'] ?? null,
+                        'option_values' => $optionValues,
+                        'attributes' => $productAttributes,
+                        'price' => $variantData['price'],
+                        'discount_price' => $variantData['sale_price'] ?? null,
+                        'cost' => $variantData['cost'] ?? null,
+                        'stock_quantity' => $variantData['stock'],
+                        'reserved_quantity' => 0,
+                        'low_stock_threshold' => 5,
+                        'is_active' => true,
+                    ]);
+
+                    $totalStock += $variantData['stock'];
+                    $minPrice = min($minPrice, $variantData['price']);
+                }
             }
 
             // Ana ürünü güncelle
