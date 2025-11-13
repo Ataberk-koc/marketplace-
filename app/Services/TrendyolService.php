@@ -368,6 +368,74 @@ class TrendyolService
     }
 
     /**
+     * Trendyol Kategori Özellikleri (Public Endpoint - Auth Gerektirmez)
+     * GET /integration/product/product-categories/{categoryId}/attributes
+     * 
+     * UYARI: Sadece LEAF (en alt seviye) kategorilerin özellikleri vardır!
+     * Kategori özellikleri haftalık olarak güncellenebilir.
+     * 
+     * @param int $categoryId Trendyol kategori ID'si (LEAF kategori olmalı)
+     * @return array
+     */
+    public function getCategoryAttributes($categoryId)
+    {
+        try {
+            // Public endpoint - authentication gerektirmez
+            $url = $this->apiUrl . "/integration/product/product-categories/{$categoryId}/attributes";
+
+            Log::info('Trendyol getCategoryAttributes request', [
+                'url' => $url,
+                'category_id' => $categoryId
+            ]);
+
+            $response = Http::timeout(30)
+                ->withOptions(['verify' => false])
+                ->get($url);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                $attributeCount = count($data['categoryAttributes'] ?? []);
+                
+                Log::info('Trendyol getCategoryAttributes success', [
+                    'category_id' => $categoryId,
+                    'attributes_count' => $attributeCount
+                ]);
+
+                return [
+                    'success' => true,
+                    'data' => $data,
+                    'message' => "{$attributeCount} özellik başarıyla alındı"
+                ];
+            }
+
+            Log::error('Trendyol getCategoryAttributes failed', [
+                'category_id' => $categoryId,
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+
+            return [
+                'success' => false,
+                'data' => ['categoryAttributes' => []],
+                'message' => 'Kategori özellikleri alınamadı (HTTP ' . $response->status() . ')'
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Trendyol getCategoryAttributes error', [
+                'category_id' => $categoryId,
+                'message' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'data' => ['categoryAttributes' => []],
+                'message' => 'API hatası: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
      * Mock Kategori Verisi
      */
     protected function getMockCategories()
@@ -476,43 +544,6 @@ class TrendyolService
                 ['id' => 12, 'name' => 'PTT Kargo'],
             ]
         ];
-    }
-
-    /**
-     * Kategori Özellikleri (Beden, Renk, Kumaş, vb.)
-     * GET /integration/product/product-categories/{categoryId}/attributes
-     */
-    public function getCategoryAttributes($categoryId)
-    {
-        if ($this->isMockMode) {
-            return $this->getMockCategoryAttributes($categoryId);
-        }
-        
-        try {
-            $response = $this->request('get', "/integration/product/product-categories/{$categoryId}/attributes");
-            
-            if ($response->successful()) {
-                return [
-                    'success' => true,
-                    'data' => $response->json()
-                ];
-            }
-            
-            Log::error('Trendyol getCategoryAttributes error', [
-                'categoryId' => $categoryId,
-                'response' => $response->body(),
-                'status' => $response->status()
-            ]);
-            
-            return ['success' => false, 'message' => 'Kategori öznitelikleri alınamadı'];
-        } catch (\Exception $e) {
-            Log::error('Trendyol getCategoryAttributes exception', [
-                'categoryId' => $categoryId,
-                'error' => $e->getMessage()
-            ]);
-            
-            return ['success' => false, 'message' => $e->getMessage()];
-        }
     }
 
     /**

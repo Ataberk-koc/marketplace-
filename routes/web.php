@@ -59,6 +59,19 @@ Route::get('/test-trendyol-categories', function() {
     ]);
 });
 
+Route::get('/test-trendyol-category-attributes/{categoryId}', function($categoryId) {
+    $service = new \App\Services\TrendyolService();
+    $result = $service->getCategoryAttributes($categoryId);
+    
+    return response()->json([
+        'success' => $result['success'],
+        'category_id' => $categoryId,
+        'attributes_count' => count($result['data']['categoryAttributes'] ?? []),
+        'first_5_attributes' => array_slice($result['data']['categoryAttributes'] ?? [], 0, 5),
+        'message' => $result['message'] ?? 'OK'
+    ]);
+});
+
 // Authentication Routes
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -135,6 +148,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/categories/sync-trendyol', [AdminCategoryController::class, 'syncTrendyolCategories'])->name('categories.sync-trendyol');
     Route::get('/categories/{category}/mapping', [AdminCategoryController::class, 'mapping'])->name('categories.mapping');
     Route::post('/categories/{category}/mapping', [AdminCategoryController::class, 'saveMapping'])->name('categories.save-mapping');
+    Route::get('/categories/{category}/attributes', [AdminCategoryController::class, 'attributes'])->name('categories.attributes');
+    Route::post('/categories/{category}/attributes', [AdminCategoryController::class, 'saveAttributeMapping'])->name('categories.save-attribute-mapping');
 
     // Beden yönetimi
     Route::resource('sizes', App\Http\Controllers\Admin\SizeController::class);

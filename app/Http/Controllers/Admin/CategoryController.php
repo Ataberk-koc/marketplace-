@@ -248,4 +248,70 @@ class CategoryController extends Controller
         return redirect()->route('admin.categories.index')
             ->with('success', 'Kategori eşleştirmesi silindi!');
     }
+
+    /**
+     * Kategori özelliklerini göster ve eşleştir
+     * Trendyol kategorisinin tüm özelliklerini (attributes) listeler
+     */
+    public function attributes(Category $category)
+    {
+        // Kategorinin Trendyol eşleştirmesi var mı kontrol et
+        $mapping = $category->trendyolMapping;
+        
+        if (!$mapping) {
+            return redirect()->route('admin.categories.index')
+                ->with('error', 'Bu kategorinin Trendyol eşleştirmesi bulunamadı! Önce kategori eşleştirmesi yapın.');
+        }
+
+        // Trendyol'dan kategori özelliklerini çek
+        $result = $this->trendyolService->getCategoryAttributes($mapping->trendyol_category_id);
+        
+        if (!$result['success']) {
+            return back()->with('error', 'Trendyol kategori özellikleri alınamadı: ' . $result['message']);
+        }
+
+        $trendyolAttributes = $result['data']['categoryAttributes'] ?? [];
+        
+        // Yerel ürün özelliklerini al (product_attributes tablosundan)
+        $localAttributes = \App\Models\ProductAttribute::where('category_id', $category->id)
+            ->with('trendyolMapping')
+            ->get();
+
+        return view('admin.categories.attributes', compact(
+            'category', 
+            'mapping', 
+            'trendyolAttributes',
+            'localAttributes'
+        ));
+    }
+
+    /**
+     * Kategori özellik eşleştirmelerini kaydet
+     * Local attribute'ları Trendyol attribute'larına eşleştirir
+     */
+    public function saveAttributeMapping(Request $request, Category $category)
+    {
+        $request->validate([
+            'mappings' => 'required|array',
+            'mappings.*.local_attribute_id' => 'required|exists:product_attributes,id',
+            'mappings.*.trendyol_attribute_id' => 'required|string',
+            'mappings.*.trendyol_attribute_name' => 'nullable|string',
+        ]);
+
+        $savedCount = 0;
+        
+        foreach ($request->mappings as $mapping) {
+            \App\Models\TrendyolCategoryAttribute::updateOrCreate(
+                ['product_attribute_id' => $mapping['local_attribute_id']],
+                [
+                    'trendyol_attribute_id' => $mapping['trendyol_attribute_id'],
+                    'trendyol_attribute_name' => $mapping['trendyol_attribute_name'] ?? 'Bilinmeyen Özellik',
+                    'is_active' => true
+                ]
+            );
+            $savedCount++;
+        }
+
+        return back()->with('success', "{$savedCount} özellik eşleştirmesi kaydedildi!");
+    }
 }

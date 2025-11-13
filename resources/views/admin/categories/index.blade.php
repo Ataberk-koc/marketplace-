@@ -39,9 +39,18 @@
                         </td>
                         <td>
                             <div class="btn-group btn-group-sm">
-                                <a href="{{ route('admin.categories.mapping', $category) }}" class="btn btn-outline-info" title="Trendyol Eşleştir">
+                                <a href="{{ route('admin.categories.mapping', $category) }}" 
+                                   class="btn btn-outline-info" 
+                                   title="Trendyol Kategori Eşleştir">
                                     <i class="bi bi-link-45deg"></i>
                                 </a>
+                                @if($category->trendyolMapping)
+                                    <a href="{{ route('admin.categories.attributes', $category) }}" 
+                                       class="btn btn-outline-success" 
+                                       title="Trendyol Özellikleri">
+                                        <i class="bi bi-tags"></i>
+                                    </a>
+                                @endif
                                 <button type="button" class="btn btn-outline-primary" 
                                         onclick="editCategory({{ $category->id }}, '{{ $category->name }}', '{{ $category->slug }}')">
                                     <i class="bi bi-pencil"></i>
