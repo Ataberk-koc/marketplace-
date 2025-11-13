@@ -91,59 +91,94 @@ class ProductController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'model_code' => 'required|string|max:100',
             'description' => 'nullable|string',
-            'sku' => 'required|string|max:100|unique:products',
             'category_id' => 'required|exists:categories,id',
             'brand_id' => 'required|exists:brands,id',
-            'price' => 'required|numeric|min:0',
-            'discount_price' => 'nullable|numeric|min:0|lt:price',
-            'stock_quantity' => 'required|integer|min:0',
-            'images' => 'nullable|array',
-            'images.*' => 'url',
             'is_active' => 'boolean',
             'is_featured' => 'boolean',
             // Varyantlar
-            'variants' => 'nullable|array',
+            'variants' => 'required|array|min:1',
+            'variants.*.color' => 'required|string',
+            'variants.*.size' => 'required|string',
+            'variants.*.barcode' => 'required|string|max:100',
             'variants.*.sku' => 'required|string|max:100|distinct',
-            'variants.*.barcode' => 'nullable|string|max:100',
-            'variants.*.attributes' => 'nullable|array',
             'variants.*.price' => 'required|numeric|min:0',
             'variants.*.discount_price' => 'nullable|numeric|min:0',
-            'variants.*.stock_quantity' => 'required|integer|min:0',
+            'variants.*.stock' => 'required|integer|min:0',
+            'variants.*.vat_rate' => 'required|numeric',
+            'variants.*.stock_code' => 'nullable|string|max:100',
         ]);
 
         \DB::beginTransaction();
         try {
+            // Ana ürünü oluştur
             $product = Product::create([
                 'user_id' => auth()->id(),
                 'name' => $request->name,
+                'sku' => $request->model_code, // Model kodu ana SKU olarak
                 'description' => $request->description,
-                'sku' => $request->sku,
                 'category_id' => $request->category_id,
                 'brand_id' => $request->brand_id,
-                'price' => $request->price,
-                'discount_price' => $request->discount_price,
-                'stock_quantity' => $request->stock_quantity,
-                'images' => $request->images ?? [],
+                'price' => 0, // Varyantlardan min fiyat hesaplanacak
+                'discount_price' => null,
+                'stock_quantity' => 0, // Varyantlardan toplam hesaplanacak
+                'images' => [],
                 'is_active' => $request->boolean('is_active', true),
                 'is_featured' => $request->boolean('is_featured', false),
             ]);
 
-            // Varyantları kaydet
-            if ($request->filled('variants')) {
-                foreach ($request->variants as $variantData) {
-                    \App\Models\ProductVariant::create([
-                        'product_id' => $product->id,
-                        'sku' => $variantData['sku'],
-                        'barcode' => $variantData['barcode'] ?? null,
-                        'attributes' => $variantData['attributes'] ?? null,
-                        'price' => $variantData['price'],
-                        'discount_price' => $variantData['discount_price'] ?? null,
-                        'stock_quantity' => $variantData['stock_quantity'],
-                        'is_active' => true,
-                    ]);
+            $totalStock = 0;
+            $minPrice = PHP_INT_MAX;
+
+            // Ürün özelliklerini hazırla
+            $productAttributes = [];
+            if ($request->has('attributes')) {
+                foreach ($request->attributes as $key => $value) {
+                    if (!empty($value)) {
+                        $productAttributes[$key] = $value;
+                    }
                 }
             }
+
+            // Ekstra özellikler varsa ekle
+            if ($request->has('extra_attributes')) {
+                foreach ($request->extra_attributes as $extraAttr) {
+                    if (!empty($extraAttr['name']) && !empty($extraAttr['value'])) {
+                        $productAttributes[$extraAttr['name']] = $extraAttr['value'];
+                    }
+                }
+            }
+
+            // Varyantları kaydet
+            foreach ($request->variants as $variantData) {
+                $attributes = array_merge($productAttributes, [
+                    'Renk' => $variantData['color'],
+                    'Beden' => $variantData['size'],
+                ]);
+
+                \App\Models\ProductVariant::create([
+                    'product_id' => $product->id,
+                    'sku' => $variantData['sku'],
+                    'barcode' => $variantData['barcode'],
+                    'attributes' => $attributes,
+                    'price' => $variantData['price'],
+                    'discount_price' => $variantData['discount_price'] ?? null,
+                    'stock_quantity' => $variantData['stock'],
+                    'reserved_quantity' => 0,
+                    'low_stock_threshold' => 5,
+                    'is_active' => true,
+                ]);
+
+                $totalStock += $variantData['stock'];
+                $minPrice = min($minPrice, $variantData['price']);
+            }
+
+            // Ana ürün bilgilerini güncelle
+            $product->update([
+                'stock_quantity' => $totalStock,
+                'price' => $minPrice,
+            ]);
 
             \DB::commit();
 
