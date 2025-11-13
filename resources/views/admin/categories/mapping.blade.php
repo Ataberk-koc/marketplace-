@@ -195,32 +195,6 @@
             </div>
         </form>
     </div>
-</div> 
-                                    data-leaf="{{ $leafString }}"
-                                    data-category-name="{{ $catPath }}"
-                                    {{ old('trendyol_category_id', $category->categoryMapping->trendyol_category_id ?? '') == $catId ? 'selected' : '' }}>
-                                {{ $catPath }} 
-                                @if($catLeaf)
-                                    ✓
-                                @endif
-                                (ID: {{ $catId }})
-                            </option>
-                        @endforeach
-                    </select>
-                    <input type="hidden" name="trendyol_category_name" id="trendyol_category_name">
-                    <small class="text-muted">
-                        <i class="bi bi-info-circle"></i> ✓ işareti olan kategoriler son seviye (leaf) kategorilerdir ve ürün gönderimi için uygundur.
-                    </small>
-                </div>
-            </div>
-
-            <div class="d-grid">
-                <button type="submit" class="btn btn-primary btn-lg">
-                    <i class="bi bi-save"></i> Eşleştirmeyi Kaydet
-                </button>
-            </div>
-        </form>
-    </div>
 </div>
 
 @push('scripts')
