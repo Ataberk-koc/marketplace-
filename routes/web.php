@@ -248,6 +248,16 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::post('/product-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'saveProductMapping'])->name('save-product-mapping');
         Route::delete('/product-mapping/{mapping}', [App\Http\Controllers\Admin\TrendyolController::class, 'deleteProductMapping'])->name('delete-product-mapping');
         
+        // ÖZELLİK/DEĞER EŞLEŞTİRME (ATTRIBUTE/VALUE MAPPING)
+        Route::prefix('mapping')->name('mapping.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\TrendyolMappingController::class, 'index'])->name('index');
+            Route::post('/attributes', [App\Http\Controllers\Admin\TrendyolMappingController::class, 'fetchTrendyolAttributes'])->name('attributes');
+            Route::get('/option-mappings', [App\Http\Controllers\Admin\TrendyolMappingController::class, 'getOptionMappings'])->name('option-mappings');
+            Route::post('/save', [App\Http\Controllers\Admin\TrendyolMappingController::class, 'saveMapping'])->name('save');
+            Route::delete('/delete', [App\Http\Controllers\Admin\TrendyolMappingController::class, 'deleteMapping'])->name('delete');
+            Route::post('/auto-match', [App\Http\Controllers\Admin\TrendyolMappingController::class, 'autoMatch'])->name('auto-match');
+        });
+        
         // ÜRÜN GÖNDERİMİ
         Route::post('/send-single-product/{mapping}', [App\Http\Controllers\Admin\TrendyolController::class, 'sendSingleProduct'])->name('send-single-product');
         Route::post('/bulk-send', [App\Http\Controllers\Admin\TrendyolController::class, 'bulkSendProducts'])->name('bulk-send');
