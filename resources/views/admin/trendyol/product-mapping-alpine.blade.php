@@ -110,7 +110,7 @@
 
                         <hr class="my-4" x-show="selectedProduct">
 
-                        <!-- ADIM 4: Trendyol Marka Gir (MANUEL TEXT INPUT) -->
+                        <!-- ADIM 4: Trendyol Marka Gir (DATALIST AUTOCOMPLETE) -->
                         <div class="mb-4" x-show="selectedProduct" x-transition>
                             <label class="form-label fw-bold">
                                 <span class="badge bg-success me-2">4</span> Trendyol Markası
@@ -119,13 +119,20 @@
                                 type="text" 
                                 name="trendyol_brand_name"
                                 x-model="selectedTrendyolBrandName"
+                                list="trendyolBrandsList"
                                 class="form-control form-control-lg" 
                                 placeholder="Marka adını yazın (örn: Nike, Adidas, Puma...)"
+                                autocomplete="off"
                                 required
                             >
+                            <datalist id="trendyolBrandsList">
+                                @foreach($trendyolBrands as $brand)
+                                    <option value="{{ $brand['name'] }}">
+                                @endforeach
+                            </datalist>
                             <small class="text-muted d-block mt-1">
                                 <i class="fas fa-keyboard"></i> 
-                                Trendyol'daki marka adını tam olarak yazın
+                                Yazmaya başlayın, eşleşen markalar görünecek
                             </small>
                         </div>
 
@@ -283,12 +290,12 @@
                             <small class="text-muted">Toplam</small>
                         </div>
                         <div class="col-3">
-                            <h4 class="text-success mb-0">{{ $stats['mapped_products'] }}</h4>
-                            <small class="text-muted">Eşleşti</small>
+                            <h4 class="text-warning mb-0">{{ $stats['mapped_products'] }}</h4>
+                            <small class="text-muted">Bekleyen</small>
                         </div>
                         <div class="col-3">
-                            <h4 class="text-warning mb-0">{{ $stats['pending_products'] }}</h4>
-                            <small class="text-muted">Bekliyor</small>
+                            <h4 class="text-success mb-0">{{ $stats['sent_products'] }}</h4>
+                            <small class="text-muted">Gönderildi</small>
                         </div>
                         <div class="col-3">
                             <h4 class="text-danger mb-0">{{ $stats['unmapped_products'] }}</h4>
@@ -299,80 +306,199 @@
             </div>
         </div>
 
-        <!-- Sağ Panel: Eşleştirme Listesi -->
+        <!-- Sağ Panel: Mevcut Eşleştirmeler -->
         <div class="col-lg-7">
-            <div class="card">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0"><i class="bi bi-list-check"></i> Mevcut Eşleştirmeler</h5>
+            <!-- Tab Navigation -->
+            <ul class="nav nav-tabs mb-3" id="productTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending" type="button" role="tab">
+                        <i class="bi bi-clock"></i> Bekleyen ({{ $existingMappings->count() }})
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="sent-tab" data-bs-toggle="tab" data-bs-target="#sent" type="button" role="tab">
+                        <i class="bi bi-check-circle"></i> Gönderildi ({{ $sentProducts->count() }})
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content" id="productTabsContent">
+                <!-- Bekleyen Ürünler -->
+                <div class="tab-pane fade show active" id="pending" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-list-check"></i> Eşleştirilmiş Ürünler</h5>
+                            @if($existingMappings->count() > 0)
+                                <form action="{{ route('admin.trendyol.bulk-send') }}" method="POST" style="display: inline;"
+                                      onsubmit="return confirm('{{ $existingMappings->count() }} ürünü Trendyol\'a göndermek istediğinize emin misiniz?');">
+                                    @csrf
+                                    <button type="submit" class="btn btn-success btn-sm">
+                                        <i class="bi bi-cloud-upload"></i> Hepsini Gönder
+                                    </button>
+                                </form>
+                            @endif
+                        </div>
+                        <div class="card-body">
+                            @if($existingMappings->isEmpty())
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> Henüz gönderilmemiş ürün yok.
+                                </div>
+                            @else
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Ürün</th>
+                                                <th>Trendyol Kategori</th>
+                                                <th>Trendyol Marka</th>
+                                                <th>Fiyat</th>
+                                                <th>İşlem</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($existingMappings as $mapping)
+                                            <tr>
+                                                <td>
+                                                    <strong>{{ $mapping->product->name }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">
+                                                        {{ $mapping->product->brand->name ?? 'N/A' }} - 
+                                                        {{ $mapping->product->category->name ?? 'N/A' }}
+                                                    </small>
+                                                </td>
+                                                <td>{{ $mapping->trendyol_category_name }}</td>
+                                                <td>{{ $mapping->trendyol_brand_name }}</td>
+                                                <td>
+                                                    @php
+                                                        $listPrice = $mapping->custom_price ?? $mapping->product->price;
+                                                        $salePrice = $mapping->custom_sale_price ?? $mapping->product->discount_price ?? $mapping->product->price;
+                                                    @endphp
+                                                    <div>
+                                                        <strong class="text-success">{{ number_format($salePrice, 2) }} ₺</strong>
+                                                        @if($listPrice != $salePrice)
+                                                            <br>
+                                                            <small class="text-muted text-decoration-line-through">{{ number_format($listPrice, 2) }} ₺</small>
+                                                        @endif
+                                                    </div>
+                                                    @if($mapping->custom_price || $mapping->custom_sale_price)
+                                                        <small class="badge bg-info">Özel</small>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    <div class="btn-group btn-group-sm">
+                                                        <form action="{{ route('admin.trendyol.send-single-product', $mapping->id) }}" method="POST" 
+                                                              style="display: inline;"
+                                                              onsubmit="return confirm('{{ $mapping->product->name }} ürününü Trendyol\'a göndermek istediğinize emin misiniz?');">
+                                                            @csrf
+                                                            <button type="submit" class="btn btn-success" title="Trendyol'a Gönder">
+                                                                <i class="bi bi-send"></i>
+                                                            </button>
+                                                        </form>
+                                                        
+                                                        <form action="{{ route('admin.trendyol.delete-product-mapping', $mapping->id) }}" method="POST" 
+                                                              style="display: inline;"
+                                                              onsubmit="return confirm('Bu eşleştirmeyi silmek istediğinizden emin misiniz?');">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="btn btn-danger" title="Eşleştirmeyi Sil">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover datatable">
-                            <thead>
-                                <tr>
-                                    <th>Ürün</th>
-                                    <th>Marka</th>
-                                    <th>Kategori</th>
-                                    <th>Trendyol Marka</th>
-                                    <th>Trendyol Kategori</th>
-                                    <th>Durum</th>
-                                    <th>İşlem</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($mappings as $mapping)
-                                <tr>
-                                    <td>{{ $mapping->product->name }}</td>
-                                    <td>{{ $mapping->product->brand->name }}</td>
-                                    <td>{{ $mapping->product->category->name }}</td>
-                                    <td>{{ $mapping->trendyol_brand_name ?? '-' }}</td>
-                                    <td>{{ $mapping->trendyol_category_name ?? '-' }}</td>
-                                    <td>
-                                        @if($mapping->status === 'sent')
-                                            <span class="badge bg-success">Gönderildi</span>
-                                        @elseif($mapping->status === 'pending')
-                                            <span class="badge bg-warning">Bekliyor</span>
-                                        @elseif($mapping->status === 'error')
-                                            <span class="badge bg-danger">Hata</span>
-                                        @else
-                                            <span class="badge bg-secondary">{{ ucfirst($mapping->status) }}</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <div class="btn-group" role="group">
-                                            <!-- Gönder Butonu (Sadece pending durumda) -->
-                                            @if($mapping->status === 'pending')
-                                                <form action="{{ route('admin.trendyol.send-single-product', $mapping) }}" 
-                                                      method="POST" 
-                                                      class="d-inline"
-                                                      onsubmit="return confirm('Bu ürünü Trendyol\'a göndermek istediğinize emin misiniz?')">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-sm btn-success" title="Trendyol'a Gönder">
-                                                        <i class="bi bi-send"></i>
-                                                    </button>
-                                                </form>
-                                            @endif
-                                            
-                                            <!-- Sil Butonu -->
-                                            <form action="{{ route('admin.trendyol.delete-product-mapping', $mapping) }}" 
-                                                  method="POST" 
-                                                  class="d-inline"
-                                                  onsubmit="return confirm('Bu eşleştirmeyi silmek istediğinize emin misiniz?')">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="btn btn-sm btn-danger" title="Sil">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+
+                <!-- Gönderilen Ürünler -->
+                <div class="tab-pane fade" id="sent" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="bi bi-check-circle"></i> Gönderilen Ürünler</h5>
+                        </div>
+                        <div class="card-body">
+                            @if($sentProducts->isEmpty())
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> Henüz Trendyol'a gönderilmiş ürün yok.
+                                </div>
+                            @else
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Ürün</th>
+                                                <th>Kategori & Marka</th>
+                                                <th>Fiyat</th>
+                                                <th>Durum</th>
+                                                <th>Gönderim Tarihi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($sentProducts as $mapping)
+                                            <tr>
+                                                <td>
+                                                    <strong>{{ $mapping->product->name }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">{{ $mapping->product->sku }}</small>
+                                                </td>
+                                                <td>
+                                                    <small>
+                                                        <strong>Kat:</strong> {{ $mapping->trendyol_category_name }}<br>
+                                                        <strong>Marka:</strong> {{ $mapping->trendyol_brand_name }}
+                                                    </small>
+                                                </td>
+                                                <td>
+                                                    @php
+                                                        $listPrice = $mapping->custom_price ?? $mapping->product->price;
+                                                        $salePrice = $mapping->custom_sale_price ?? $mapping->product->discount_price ?? $mapping->product->price;
+                                                    @endphp
+                                                    <div>
+                                                        <strong class="text-success">{{ number_format($salePrice, 2) }} ₺</strong>
+                                                        @if($listPrice != $salePrice)
+                                                            <br>
+                                                            <small class="text-muted text-decoration-line-through">{{ number_format($listPrice, 2) }} ₺</small>
+                                                        @endif
+                                                    </div>
+                                                    @if($mapping->custom_price || $mapping->custom_sale_price)
+                                                        <small class="badge bg-info">Özel</small>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if($mapping->status === 'sent')
+                                                        <span class="badge bg-primary">Gönderildi</span>
+                                                    @elseif($mapping->status === 'approved')
+                                                        <span class="badge bg-success">Onaylandı</span>
+                                                    @elseif($mapping->status === 'rejected')
+                                                        <span class="badge bg-danger">Reddedildi</span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    <small>{{ $mapping->sent_at ? $mapping->sent_at->format('d.m.Y H:i') : '-' }}</small>
+                                                </td>
+                                            </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @endif
+                        </div>
                     </div>
                 </div>
             </div>
+
+            @if($stats['unmapped_products'] > 0)
+            <div class="alert alert-warning mt-3">
+                <i class="bi bi-exclamation-triangle"></i> 
+                <strong>{{ $stats['unmapped_products'] }}</strong> ürün henüz Trendyol ile eşleştirilmemiş.
+            </div>
+            @endif
         </div>
     </div>
 </div>

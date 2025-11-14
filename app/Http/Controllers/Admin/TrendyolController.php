@@ -357,15 +357,22 @@ class TrendyolController extends Controller
             }
         }
         
-        // Bekleyen eşleştirmeler
-        $mappings = ProductTrendyolMapping::with('product.brand', 'product.category')
+        // Bekleyen eşleştirmeler (pending status)
+        $existingMappings = ProductTrendyolMapping::with('product.brand', 'product.category')
+            ->where('status', 'pending')
+            ->latest()
+            ->get();
+        
+        // Gönderilen ürünler (sent status)
+        $sentProducts = ProductTrendyolMapping::with('product.brand', 'product.category')
+            ->where('status', 'sent')
             ->latest()
             ->get();
 
         $stats = [
             'total_products' => Product::count(),
-            'mapped_products' => ProductTrendyolMapping::whereIn('status', ['active', 'sent'])->count(),
-            'pending_products' => ProductTrendyolMapping::where('status', 'pending')->count(),
+            'mapped_products' => ProductTrendyolMapping::where('status', 'pending')->count(),
+            'sent_products' => ProductTrendyolMapping::where('status', 'sent')->count(),
             'unmapped_products' => Product::count() - ProductTrendyolMapping::count(),
         ];
 
@@ -373,7 +380,8 @@ class TrendyolController extends Controller
             'localBrands',
             'trendyolCategories',
             'trendyolBrands',
-            'mappings',
+            'existingMappings',
+            'sentProducts',
             'stats'
         ));
     }
@@ -430,8 +438,7 @@ class TrendyolController extends Controller
             'product_id' => 'required|exists:products,id',
             'trendyol_category_id' => 'required|string',
             'trendyol_category_name' => 'nullable|string',
-            'trendyol_brand_id' => 'required|string',
-            'trendyol_brand_name' => 'nullable|string',
+            'trendyol_brand_name' => 'required|string',
             'attribute_mappings' => 'nullable|array',
             'custom_price' => 'nullable|numeric|min:0',
             'custom_sale_price' => 'nullable|numeric|min:0',
@@ -442,7 +449,7 @@ class TrendyolController extends Controller
             [
                 'trendyol_category_id' => $request->trendyol_category_id,
                 'trendyol_category_name' => $request->trendyol_category_name,
-                'trendyol_brand_id' => $request->trendyol_brand_id,
+                'trendyol_brand_id' => null, // Artık marka ID yok, sadece isim var
                 'trendyol_brand_name' => $request->trendyol_brand_name,
                 'attribute_mappings' => $request->attribute_mappings,
                 'custom_price' => $request->custom_price,
