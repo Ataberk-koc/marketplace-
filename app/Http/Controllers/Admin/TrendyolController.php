@@ -613,4 +613,116 @@ class TrendyolController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Send single product to Trendyol API
+     * 
+     * @param int $productId
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function sendProductToTrendyol($productId)
+    {
+        try {
+            $product = Product::with(['brand', 'category', 'variants', 'productAttributes'])
+                ->findOrFail($productId);
+
+            \Log::info('🚀 Sending product to Trendyol', [
+                'product_id' => $product->id,
+                'product_name' => $product->name
+            ]);
+
+            // Call TrendyolService to send product
+            $result = $this->trendyolService->sendProductToTrendyol($product);
+
+            if ($result['success']) {
+                // Save batch request ID to product mapping if exists
+                $mapping = ProductTrendyolMapping::where('product_id', $product->id)->first();
+                if ($mapping && $result['batchRequestId']) {
+                    $mapping->update([
+                        'status' => 'sent',
+                        'batch_request_id' => $result['batchRequestId'],
+                        'sent_at' => now()
+                    ]);
+                }
+
+                \Log::info('✅ Product sent successfully', [
+                    'product_id' => $product->id,
+                    'batch_request_id' => $result['batchRequestId']
+                ]);
+
+                return back()->with('success', $result['message'] . ' (Batch ID: ' . $result['batchRequestId'] . ')');
+            } else {
+                \Log::error('❌ Product send failed', [
+                    'product_id' => $product->id,
+                    'error' => $result['message']
+                ]);
+
+                return back()->with('error', $result['message']);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('❌ Send product exception', [
+                'product_id' => $productId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()->with('error', 'Sistem hatası: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Send multiple products to Trendyol API (Bulk Send)
+     * 
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function bulkSendProducts()
+    {
+        try {
+            // Get all pending product mappings
+            $mappings = ProductTrendyolMapping::where('status', 'pending')
+                ->with(['product.brand', 'product.category', 'product.variants', 'product.productAttributes'])
+                ->get();
+
+            if ($mappings->isEmpty()) {
+                return back()->with('info', 'Gönderilecek ürün bulunamadı.');
+            }
+
+            $successCount = 0;
+            $failCount = 0;
+            $errors = [];
+
+            foreach ($mappings as $mapping) {
+                $result = $this->trendyolService->sendProductToTrendyol($mapping->product);
+
+                if ($result['success']) {
+                    $successCount++;
+                    if ($result['batchRequestId']) {
+                        $mapping->update([
+                            'status' => 'sent',
+                            'batch_request_id' => $result['batchRequestId'],
+                            'sent_at' => now()
+                        ]);
+                    }
+                } else {
+                    $failCount++;
+                    $errors[] = $mapping->product->name . ': ' . $result['message'];
+                }
+            }
+
+            $message = "{$successCount} ürün başarıyla gönderildi.";
+            if ($failCount > 0) {
+                $message .= " {$failCount} ürün gönderilemedi: " . implode(', ', array_slice($errors, 0, 3));
+            }
+
+            return back()->with($failCount > 0 ? 'warning' : 'success', $message);
+
+        } catch (\Exception $e) {
+            \Log::error('❌ Bulk send exception', [
+                'error' => $e->getMessage()
+            ]);
+
+            return back()->with('error', 'Toplu gönderim hatası: ' . $e->getMessage());
+        }
+    }
 }

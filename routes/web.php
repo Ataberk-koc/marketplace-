@@ -251,6 +251,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::post('/product-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'saveProductMapping'])->name('save-product-mapping');
         Route::delete('/product-mapping/{mapping}', [App\Http\Controllers\Admin\TrendyolController::class, 'deleteProductMapping'])->name('delete-product-mapping');
         
+        // 🚀 PRODUCT SEND TO TRENDYOL API
+        Route::post('/send-product/{product}', [App\Http\Controllers\Admin\TrendyolController::class, 'sendProductToTrendyol'])->name('send-product');
+        Route::post('/bulk-send-products', [App\Http\Controllers\Admin\TrendyolController::class, 'bulkSendProducts'])->name('bulk-send-products');
+        
         // ÖZELLİK/DEĞER EŞLEŞTİRME (ATTRIBUTE/VALUE MAPPING)
         Route::prefix('mapping')->name('mapping.')->group(function () {
             Route::get('/', [App\Http\Controllers\Admin\TrendyolMappingController::class, 'index'])->name('index');

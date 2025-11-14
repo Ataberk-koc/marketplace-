@@ -25,6 +25,7 @@ class TrendyolService
 {
     protected $apiUrl;
     protected $supplierId;
+    protected $sellerId;
     protected $apiKey;
     protected $apiSecret;
     protected $isMockMode = false;
@@ -32,14 +33,16 @@ class TrendyolService
     public function __construct()
     {
         // Production veya Stage ortamı
-        $isProduction = config('services.trendyol.environment', 'stage') === 'production';
+        $environment = config('services.trendyol.environment', 'production');
+        $isProduction = $environment === 'production';
         
         // Base URL
         $this->apiUrl = $isProduction 
-            ? 'https://apigw.trendyol.com'
-            : 'https://stageapigw.trendyol.com';
+            ? config('services.trendyol.base_uri', 'https://api.trendyol.com/sapigw')
+            : config('services.trendyol.stage_base_uri', 'https://stageapi.trendyol.com/sapigw');
             
-        $this->supplierId = config('services.trendyol.supplier_id');
+        $this->supplierId = config('services.trendyol.supplier_id'); // Legacy
+        $this->sellerId = config('services.trendyol.seller_id');
         $this->apiKey = config('services.trendyol.api_key');
         $this->apiSecret = config('services.trendyol.api_secret');
 
@@ -112,18 +115,21 @@ class TrendyolService
     public function getBrands($page = 0)
     {
         try {
-            // Public endpoint - authentication gerektirmez
-            $url = $this->apiUrl . '/integration/product/brands';
+            // Trendyol API v2 endpoint
+            $supplierId = $this->sellerId ?? $this->supplierId;
+            $url = $this->apiUrl . "/suppliers/{$supplierId}/brands";
             
             // Sayfa parametresi varsa ekle
             if ($page > 0) {
                 $url .= '?page=' . $page;
             }
 
-            Log::info('Trendyol getBrands request', ['url' => $url, 'page' => $page]);
+            Log::info('Trendyol getBrands request', ['url' => $url, 'page' => $page, 'supplier_id' => $supplierId]);
 
-            $response = Http::timeout(30)
+            // Authentication ile istek yap
+            $response = Http::withHeaders($this->getAuthHeaders())
                 ->withOptions(['verify' => false])
+                ->timeout(30)
                 ->get($url);
 
             if ($response->successful()) {
@@ -262,13 +268,16 @@ class TrendyolService
     public function getCategories()
     {
         try {
-            // Public endpoint - authentication gerektirmez
-            $url = $this->apiUrl . '/integration/product/product-categories';
+            // Trendyol API v2 endpoint
+            $supplierId = $this->sellerId ?? $this->supplierId;
+            $url = $this->apiUrl . "/suppliers/{$supplierId}/products/categories";
 
-            Log::info('Trendyol getCategories request', ['url' => $url]);
+            Log::info('Trendyol getCategories request', ['url' => $url, 'supplier_id' => $supplierId]);
 
-            $response = Http::timeout(60) // Kategori ağacı büyük olabilir
+            // Authentication ile istek yap
+            $response = Http::withHeaders($this->getAuthHeaders())
                 ->withOptions(['verify' => false])
+                ->timeout(60) // Kategori ağacı büyük olabilir
                 ->get($url);
 
             if ($response->successful()) {
@@ -388,15 +397,18 @@ class TrendyolService
     {
         try {
             // Public endpoint - authentication gerektirmez
-            $url = $this->apiUrl . "/integration/product/product-categories/{$categoryId}/attributes";
+            $supplierId = $this->sellerId ?? $this->supplierId;
+            $url = $this->apiUrl . "/suppliers/{$supplierId}/products/categories/{$categoryId}/attributes";
 
             Log::info('Trendyol getCategoryAttributes request', [
                 'url' => $url,
-                'category_id' => $categoryId
+                'category_id' => $categoryId,
+                'supplier_id' => $supplierId
             ]);
 
-            $response = Http::timeout(30)
+            $response = Http::withHeaders($this->getAuthHeaders())
                 ->withOptions(['verify' => false])
+                ->timeout(30)
                 ->get($url);
 
             if ($response->successful()) {
@@ -1059,6 +1071,12 @@ class TrendyolService
 
         if (!$mapping) {
             Log::warning('TrendyolService: Category mapping bulunamadı', ['category_id' => $categoryId]);
+            
+            // ⚠️ GEÇİCİ FALLBACK: Eğer mapping yoksa, kullanıcıyı bilgilendir
+            // Gerçek üretimde bu mapping yapılmalı!
+            Log::error('❌ UYARI: Category ID ' . $categoryId . ' için Trendyol eşleştirmesi yapılmamış!');
+            Log::error('👉 Çözüm: Admin panel > Trendyol > Category Mapping sayfasından eşleştirme yapın');
+            
             return null;
         }
 
@@ -1452,6 +1470,115 @@ class TrendyolService
         }
 
         return $images;
+    }
+
+    /**
+     * Get authentication headers for Trendyol API
+     * 
+     * @return array
+     */
+    private function getAuthHeaders()
+    {
+        return [
+            'Authorization' => 'Basic ' . base64_encode("{$this->apiKey}:{$this->apiSecret}"),
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+            'User-Agent' => 'MarketplaceProject-Laravel-1.0.0',
+        ];
+    }
+
+    /**
+     * Send product to Trendyol API (createProducts endpoint)
+     * 
+     * @param Product $product
+     * @return array ['success' => bool, 'batchRequestId' => string|null, 'message' => string, 'response' => array]
+     */
+    public function sendProductToTrendyol(Product $product)
+    {
+        try {
+            // 1. Prepare payload
+            $payload = $this->prepareProductPayloadWithMappings($product);
+
+            if (!$payload['success'] || empty($payload['items'])) {
+                return [
+                    'success' => false,
+                    'batchRequestId' => null,
+                    'message' => 'Payload hazırlanamadı: ' . implode(', ', $payload['errors'] ?? []),
+                    'response' => $payload
+                ];
+            }
+
+            // 2. Mock mode check
+            if ($this->isMockMode) {
+                Log::warning('TrendyolService: Mock mode - Gerçek API çağrısı yapılmadı');
+                return [
+                    'success' => true,
+                    'batchRequestId' => 'MOCK-' . time(),
+                    'message' => 'Mock mode: Ürün gönderildi (simülasyon)',
+                    'response' => ['mock' => true]
+                ];
+            }
+
+            // 3. Prepare API endpoint
+            $sellerId = $this->sellerId ?? $this->supplierId;
+            $url = "{$this->apiUrl}/suppliers/{$sellerId}/products";
+
+            Log::info('📤 Trendyol API Request', [
+                'url' => $url,
+                'seller_id' => $sellerId,
+                'payload' => $payload
+            ]);
+
+            // 4. Make API call
+            $response = Http::withHeaders($this->getAuthHeaders())
+                ->withOptions(['verify' => false])
+                ->timeout(60)
+                ->post($url, $payload);
+
+            $responseData = $response->json();
+
+            Log::info('📥 Trendyol API Response', [
+                'status' => $response->status(),
+                'response' => $responseData
+            ]);
+
+            // 5. Handle response
+            if ($response->successful()) {
+                $batchRequestId = $responseData['batchRequestId'] ?? $responseData['id'] ?? null;
+                
+                return [
+                    'success' => true,
+                    'batchRequestId' => $batchRequestId,
+                    'message' => 'Ürün başarıyla Trendyol\'a gönderildi!',
+                    'response' => $responseData
+                ];
+            } else {
+                $errorMessage = $responseData['message'] ?? $responseData['error'] ?? 'Bilinmeyen hata';
+                if (isset($responseData['errors']) && is_array($responseData['errors'])) {
+                    $errorMessage = collect($responseData['errors'])->pluck('message')->implode(', ');
+                }
+
+                return [
+                    'success' => false,
+                    'batchRequestId' => null,
+                    'message' => 'Trendyol API Hatası: ' . $errorMessage,
+                    'response' => $responseData
+                ];
+            }
+
+        } catch (\Exception $e) {
+            Log::error('❌ Trendyol API Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return [
+                'success' => false,
+                'batchRequestId' => null,
+                'message' => 'Sistem hatası: ' . $e->getMessage(),
+                'response' => ['exception' => $e->getMessage()]
+            ];
+        }
     }
 
     public function formatProductForTrendyol($product)

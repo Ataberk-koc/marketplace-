@@ -43,10 +43,13 @@ return [
     | API Dokümantasyonu: https://developers.trendyol.com
     */
     'trendyol' => [
-        'environment' => env('TRENDYOL_ENVIRONMENT', 'production'),
-        'supplier_id' => env('TRENDYOL_SUPPLIER_ID'),
+        'environment' => env('TRENDYOL_ENVIRONMENT', 'production'), // 'production' or 'stage'
         'api_key' => env('TRENDYOL_API_KEY'),
         'api_secret' => env('TRENDYOL_API_SECRET'),
+        'seller_id' => env('TRENDYOL_SELLER_ID'),
+        'supplier_id' => env('TRENDYOL_SUPPLIER_ID'), // Legacy support
+        'base_uri' => env('TRENDYOL_BASE_URI', 'https://api.trendyol.com/sapigw'),
+        'stage_base_uri' => 'https://stageapi.trendyol.com/sapigw',
     ],
 
     /*
