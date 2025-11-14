@@ -563,4 +563,47 @@ class TrendyolController extends Controller
         return redirect()->route('admin.trendyol.size-mapping')
             ->with('success', 'Beden eşleştirmesi silindi!');
     }
+
+    /**
+     * Search Trendyol brands (AJAX endpoint for autocomplete)
+     */
+    public function searchTrendyolBrands(Request $request)
+    {
+        $query = $request->query('search', '');
+
+        // Minimum 2 characters required
+        if (strlen($query) < 2) {
+            return response()->json([
+                'success' => false,
+                'message' => 'En az 2 karakter girin',
+                'data' => []
+            ]);
+        }
+
+        try {
+            // Search in TrendyolBrand table
+            $brands = \App\Models\TrendyolBrand::where('name', 'LIKE', '%' . $query . '%')
+                ->orderBy('name')
+                ->limit(50) // Limit to 50 results for performance
+                ->get(['id', 'trendyol_brand_id', 'name']);
+
+            return response()->json([
+                'success' => true,
+                'data' => $brands,
+                'count' => $brands->count()
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Trendyol brand search error', [
+                'query' => $query,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Arama hatası',
+                'data' => []
+            ], 500);
+        }
+    }
 }

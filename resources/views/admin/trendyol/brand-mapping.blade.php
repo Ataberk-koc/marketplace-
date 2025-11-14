@@ -2,8 +2,77 @@
 
 @section('title', 'Marka Eşleştirme - Trendyol')
 
+@push('styles')
+<style>
+    .autocomplete-container {
+        position: relative;
+    }
+    
+    .autocomplete-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-top: none;
+        border-radius: 0 0 0.375rem 0.375rem;
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 1000;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .autocomplete-item {
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        border-bottom: 1px solid #f1f3f5;
+        transition: background 0.15s;
+    }
+    
+    .autocomplete-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .autocomplete-item:last-child {
+        border-bottom: none;
+    }
+    
+    .autocomplete-loading {
+        padding: 1rem;
+        text-align: center;
+        color: #6c757d;
+    }
+    
+    .autocomplete-empty {
+        padding: 1rem;
+        text-align: center;
+        color: #6c757d;
+        font-style: italic;
+    }
+    
+    .selected-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: #e7f3ff;
+        border: 1px solid #0d6efd;
+        border-radius: 0.375rem;
+        color: #0d6efd;
+        margin-top: 0.5rem;
+    }
+    
+    .selected-brand .clear-btn {
+        cursor: pointer;
+        color: #0d6efd;
+        font-weight: bold;
+    }
+</style>
+@endpush
+
 @section('content')
-<div class="container-fluid">
+<div class="container-fluid" x-data="brandMapping()">
     <div class="row mb-4">
         <div class="col-12">
             <h2><i class="fas fa-link"></i> Marka Eşleştirme</h2>
@@ -54,21 +123,76 @@
 
                         <div class="mb-3">
                             <label class="form-label fw-bold">Trendyol Markası</label>
-                            <select name="trendyol_brand_id" class="form-select" required>
-                                <option value="">Trendyol Markası Seçin</option>
-                                @foreach($trendyolBrands as $tBrand)
-                                    <option value="{{ $tBrand->id }}">
-                                        {{ $tBrand->name }} (ID: {{ $tBrand->trendyol_brand_id }})
-                                    </option>
-                                @endforeach
-                            </select>
-                            <small class="text-muted">
-                                Toplam {{ $trendyolBrands->count() }} Trendyol markası
+                            
+                            <!-- 🔍 Search Input -->
+                            <div class="autocomplete-container">
+                                <input 
+                                    type="text" 
+                                    class="form-control" 
+                                    placeholder="Marka aramak için yazın (min. 2 karakter)..."
+                                    x-model="searchQuery"
+                                    @input.debounce.300ms="searchBrands()"
+                                    @focus="showResults = true"
+                                    autocomplete="off"
+                                >
+                                
+                                <!-- Hidden input for form submission -->
+                                <input 
+                                    type="hidden" 
+                                    name="trendyol_brand_id" 
+                                    x-model="selectedBrandId"
+                                    required
+                                >
+                                
+                                <!-- Selected Brand Display -->
+                                <div x-show="selectedBrand" class="selected-brand">
+                                    <span x-text="selectedBrand?.name"></span>
+                                    <span class="clear-btn" @click="clearSelection()">×</span>
+                                </div>
+                                
+                                <!-- Autocomplete Results -->
+                                <div 
+                                    class="autocomplete-results" 
+                                    x-show="showResults && searchQuery.length >= 2 && !selectedBrand"
+                                    @click.outside="showResults = false"
+                                >
+                                    <!-- Loading State -->
+                                    <div class="autocomplete-loading" x-show="loading">
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                        Aranıyor...
+                                    </div>
+                                    
+                                    <!-- Results List -->
+                                    <template x-if="!loading && results.length > 0">
+                                        <div>
+                                            <template x-for="brand in results" :key="brand.id">
+                                                <div 
+                                                    class="autocomplete-item" 
+                                                    @click="selectBrand(brand)"
+                                                    x-text="brand.name"
+                                                ></div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    
+                                    <!-- Empty State -->
+                                    <div 
+                                        class="autocomplete-empty" 
+                                        x-show="!loading && results.length === 0 && searchQuery.length >= 2"
+                                    >
+                                        Marka bulunamadı
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <small class="text-muted d-block mt-1">
+                                <i class="fas fa-info-circle"></i> 
+                                En az 2 karakter girin
                             </small>
                         </div>
 
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="fas fa-save"></i> Eşleştir
+                        <button type="submit" class="btn btn-primary w-100" :disabled="!selectedBrandId">
+                            <i class="fas fa-save"></i> Eşleştirmeyi Kaydet
                         </button>
                     </form>
                 </div>
@@ -196,3 +320,60 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+function brandMapping() {
+    return {
+        searchQuery: '',
+        results: [],
+        loading: false,
+        showResults: false,
+        selectedBrand: null,
+        selectedBrandId: '',
+        
+        async searchBrands() {
+            if (this.searchQuery.length < 2) {
+                this.results = [];
+                return;
+            }
+            
+            this.loading = true;
+            this.showResults = true;
+            
+            try {
+                const response = await fetch(`{{ route('admin.trendyol.search-brands') }}?search=${encodeURIComponent(this.searchQuery)}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.results = data.data;
+                } else {
+                    this.results = [];
+                    console.error('Search error:', data.message);
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                this.results = [];
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        selectBrand(brand) {
+            this.selectedBrand = brand;
+            this.selectedBrandId = brand.trendyol_brand_id;
+            this.searchQuery = brand.name;
+            this.showResults = false;
+            this.results = [];
+        },
+        
+        clearSelection() {
+            this.selectedBrand = null;
+            this.selectedBrandId = '';
+            this.searchQuery = '';
+            this.results = [];
+        }
+    }
+}
+</script>
+@endpush

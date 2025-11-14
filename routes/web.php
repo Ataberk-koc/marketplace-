@@ -229,6 +229,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::post('/brand-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'saveBrandMapping'])->name('save-brand-mapping');
         Route::delete('/brand-mapping/{mapping}', [App\Http\Controllers\Admin\TrendyolController::class, 'deleteBrandMapping'])->name('delete-brand-mapping');
         
+        // ⭐ AJAX: Brand Search Autocomplete
+        Route::get('/search-brands', [App\Http\Controllers\Admin\TrendyolController::class, 'searchTrendyolBrands'])->name('search-brands');
+        
         Route::get('/category-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'categoryMapping'])->name('category-mapping');
         Route::post('/category-mapping', [App\Http\Controllers\Admin\TrendyolController::class, 'saveCategoryMapping'])->name('save-category-mapping');
         Route::delete('/category-mapping/{mapping}', [App\Http\Controllers\Admin\TrendyolController::class, 'deleteCategoryMapping'])->name('delete-category-mapping');
