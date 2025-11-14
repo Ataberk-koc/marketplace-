@@ -416,431 +416,105 @@
             </div>
         </div>
     </form>
-
-    <!-- Alpine.js Component Script -->
-    <script>
-        function productEditor() {
-            return {
-                productData: {
-                    name: '',
-                    model_code: '',
-                    description: '',
-                    category_id: '',
-                    brand_id: '',
-                    is_active: true
-                },
-                variants: [],
-                attributes: [],
-                seo: {
-                    meta_title: '',
-                    meta_description: '',
-                    keywords: [],
-                    currentKeyword: ''
-                },
-                definedOptions: @json($definedOptions),
-
-                initializeProduct() {
-                    const product = @json($product);
-                    
-                    // Temel bilgiler
-                    this.productData = {
-                        name: product.name || '',
-                        model_code: product.model_code || '',
-                        description: product.description || '',
-                        category_id: product.category_id ? String(product.category_id) : '',
-                        brand_id: product.brand_id ? String(product.brand_id) : '',
-                        vat_rate: product.vat_rate ? String(product.vat_rate) : '20',
-                        dimensional_weight: product.dimensional_weight || 1.0,
-                        cargo_company_id: product.cargo_company_id || '',
-                        is_active: product.is_active === 1 || product.is_active === true
-                    };
-
-                    // SEO bilgileri
-                    this.seo = {
-                        meta_title: product.meta_title || '',
-                        meta_description: product.meta_description || '',
-                        keywords: product.meta_keywords ? product.meta_keywords.split(',').map(k => k.trim()).filter(k => k) : [],
-                        currentKeyword: ''
-                    };
-
-                    // Varyantlar
-                    if (product.variants && product.variants.length > 0) {
-                        this.variants = product.variants.map(v => ({
-                            color: v.color || '',
-                            size: v.size || '',
-                            barcode: v.barcode || '',
-                            sku: v.sku || '',
-                            price: v.price || '',
-                            stock: v.stock || 0
-                        }));
-                    }
-
-                    // Özellikler
-                    if (product.product_attributes && product.product_attributes.length > 0) {
-                        this.attributes = product.product_attributes.map(a => ({
-                            key: a.attribute_key || '',
-                            value: a.attribute_value || ''
-                        }));
-                    }
-                },
-
-                addVariant() {
-                    this.variants.push({
-                        color: '',
-                        size: '',
-                        barcode: '',
-                        sku: '',
-                        price: '',
-                        stock: 0
-                    });
-                },
-
-                removeVariant(index) {
-                    this.variants.splice(index, 1);
-                },
-
-                addAttribute() {
-                    this.attributes.push({
-                        key: '',
-                        value: ''
-                    });
-                },
-
-                removeAttribute(index) {
-                    this.attributes.splice(index, 1);
-                },
-
-                quickFillOption(option) {
-                    // Varyantları temizle ve yenilerini ekle
-                    this.variants = [];
-                    
-                    option.values.forEach(value => {
-                        this.variants.push({
-                            color: value.color || '',
-                            size: value.size || '',
-                            barcode: '',
-                            sku: '',
-                            price: '',
-                            stock: 0
-                        });
-                    });
-
-                    // Özellikleri temizle ve yenilerini ekle
-                    this.attributes = [];
-                    
-                    if (option.attributes && option.attributes.length > 0) {
-                        option.attributes.forEach(attr => {
-                            this.attributes.push({
-                                key: attr.key || '',
-                                value: attr.value || ''
-                            });
-                        });
-                    }
-                },
-
-                addKeyword() {
-                    const keyword = this.seo.currentKeyword.trim();
-                    if (keyword && !this.seo.keywords.includes(keyword)) {
-                        this.seo.keywords.push(keyword);
-                    }
-                    this.seo.currentKeyword = '';
-                },
-
-                removeKeyword(index) {
-                    this.seo.keywords.splice(index, 1);
-                },
-
-                prepareFormData(event) {
-                    // Form gönderilmeden önce JSON verilerini hazırla
-                    const variantsInput = event.target.querySelector('input[name="variants_json"]');
-                    const attributesInput = event.target.querySelector('input[name="attributes_json"]');
-                    
-                    if (variantsInput) {
-                        variantsInput.value = JSON.stringify(this.variants);
-                    }
-                    
-                    if (attributesInput) {
-                        attributesInput.value = JSON.stringify(this.attributes);
-                    }
-                }
-            };
-        }
-    </script>
 </div>
+@endsection
 
-                               placeholder="Örn: PRD-001"
-                               required>
-                        <small class="form-text text-muted">Benzersiz ürün kodu olmalıdır</small>
-                        @error('sku')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Açıklama</label>
-                        <textarea class="form-control @error('description') is-invalid @enderror" 
-                                  id="description" 
-                                  name="description" 
-                                  rows="5">{{ old('description', $product->description) }}</textarea>
-                        @error('description')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                </div>
-            </div>
-
-            <!-- Fiyat ve Stok -->
-            <div class="card mb-4">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="bi bi-currency-dollar"></i> Fiyat ve Stok Bilgileri</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label for="price" class="form-label">Fiyat (₺) <span class="text-danger">*</span></label>
-                            <input type="number" 
-                                   class="form-control @error('price') is-invalid @enderror" 
-                                   id="price" 
-                                   name="price" 
-                                   value="{{ old('price', $product->price) }}" 
-                                   step="0.01" 
-                                   min="0"
-                                   required>
-                            @error('price')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <div class="col-md-4 mb-3">
-                            <label for="discount_price" class="form-label">İndirimli Fiyat (₺)</label>
-                            <input type="number" 
-                                   class="form-control @error('discount_price') is-invalid @enderror" 
-                                   id="discount_price" 
-                                   name="discount_price" 
-                                   value="{{ old('discount_price', $product->discount_price) }}" 
-                                   step="0.01" 
-                                   min="0">
-                            @error('discount_price')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <div class="col-md-4 mb-3">
-                            <label for="stock_quantity" class="form-label">Stok Miktarı <span class="text-danger">*</span></label>
-                            <input type="number" 
-                                   class="form-control @error('stock_quantity') is-invalid @enderror" 
-                                   id="stock_quantity" 
-                                   name="stock_quantity" 
-                                   value="{{ old('stock_quantity', $product->stock_quantity) }}" 
-                                   min="0"
-                                   required>
-                            @error('stock_quantity')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Görseller -->
-            <div class="card mb-4">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="bi bi-images"></i> Ürün Görselleri</h5>
-                </div>
-                <div class="card-body">
-                    <div id="imageInputs">
-                        @php
-                            $images = old('images', $product->images ?? []);
-                            if (empty($images)) {
-                                $images = [''];
-                            }
-                        @endphp
-                        
-                        @foreach($images as $index => $image)
-                        <div class="mb-3 image-input-group">
-                            <label class="form-label">Görsel URL {{ $index + 1 }} {{ $index === 0 ? '(Ana Görsel)' : '' }}</label>
-                            <div class="input-group">
-                                <input type="url" 
-                                       class="form-control" 
-                                       name="images[]" 
-                                       value="{{ $image }}" 
-                                       placeholder="https://example.com/image.jpg">
-                                <button type="button" class="btn btn-outline-secondary" onclick="previewImage(this)">
-                                    <i class="bi bi-eye"></i>
-                                </button>
-                                @if($index > 0)
-                                <button type="button" class="btn btn-outline-danger" onclick="removeImageInput(this)">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                                @endif
-                            </div>
-                            @if($image)
-                            <div class="image-preview mt-2">
-                                <img src="{{ $image }}" alt="Preview" style="max-width: 200px; max-height: 200px;" class="img-thumbnail">
-                            </div>
-                            @else
-                            <div class="image-preview mt-2" style="display: none;">
-                                <img src="" alt="Preview" style="max-width: 200px; max-height: 200px;" class="img-thumbnail">
-                            </div>
-                            @endif
-                        </div>
-                        @endforeach
-                    </div>
-                    
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addImageInput()">
-                        <i class="bi bi-plus-circle"></i> Görsel Ekle
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Sağ Kolon -->
-        <div class="col-lg-4">
-            <!-- Kategori ve Marka -->
-            <div class="card mb-4">
-                <div class="card-header bg-warning">
-                    <h5 class="mb-0"><i class="bi bi-tag"></i> Kategori ve Marka</h5>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label for="category_id" class="form-label">Kategori <span class="text-danger">*</span></label>
-                        <select class="form-select @error('category_id') is-invalid @enderror" 
-                                id="category_id" 
-                                name="category_id" 
-                                required>
-                            <option value="">-- Kategori Seçin --</option>
-                            @foreach($categories as $category)
-                                <option value="{{ $category->id }}" 
-                                    {{ old('category_id', $product->category_id) == $category->id ? 'selected' : '' }}>
-                                    {{ $category->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('category_id')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="brand_id" class="form-label">Marka <span class="text-danger">*</span></label>
-                        <select class="form-select @error('brand_id') is-invalid @enderror" 
-                                id="brand_id" 
-                                name="brand_id" 
-                                required>
-                            <option value="">-- Marka Seçin --</option>
-                            @foreach($brands as $brand)
-                                <option value="{{ $brand->id }}" 
-                                    {{ old('brand_id', $product->brand_id) == $brand->id ? 'selected' : '' }}>
-                                    {{ $brand->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('brand_id')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                </div>
-            </div>
-
-            <!-- Durum Ayarları -->
-            <div class="card mb-4">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0"><i class="bi bi-toggles"></i> Durum Ayarları</h5>
-                </div>
-                <div class="card-body">
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" 
-                               type="checkbox" 
-                               id="is_active" 
-                               name="is_active" 
-                               value="1"
-                               {{ old('is_active', $product->is_active) ? 'checked' : '' }}>
-                        <label class="form-check-label" for="is_active">
-                            <i class="bi bi-check-circle text-success"></i> Aktif
-                        </label>
-                        <small class="form-text text-muted d-block">
-                            Aktif ürünler sitede görünür
-                        </small>
-                    </div>
-
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" 
-                               type="checkbox" 
-                               id="is_featured" 
-                               name="is_featured" 
-                               value="1"
-                               {{ old('is_featured', $product->is_featured) ? 'checked' : '' }}>
-                        <label class="form-check-label" for="is_featured">
-                            <i class="bi bi-star text-warning"></i> Öne Çıkan
-                        </label>
-                        <small class="form-text text-muted d-block">
-                            Öne çıkan ürünler ana sayfada gösterilir
-                        </small>
-                    </div>
-                </div>
-            </div>
-
-            <!-- İstatistikler -->
-            <div class="card mb-4">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> İstatistikler</h5>
-                </div>
-                <div class="card-body">
-                    <div class="mb-2">
-                        <small class="text-muted">Oluşturulma Tarihi:</small>
-                        <div>{{ $product->created_at->format('d.m.Y H:i') }}</div>
-                    </div>
-                    <div class="mb-2">
-                        <small class="text-muted">Son Güncelleme:</small>
-                        <div>{{ $product->updated_at->format('d.m.Y H:i') }}</div>
-                    </div>
-                    <div class="mb-2">
-                        <small class="text-muted">Satıcı:</small>
-                        <div>{{ $product->seller->name }}</div>
-                    </div>
-                    @if($product->productAttributes()->count() > 0)
-                    <div class="mb-2">
-                        <small class="text-muted">Özellik Sayısı:</small>
-                        <div>
-                            <span class="badge bg-info">{{ $product->productAttributes()->count() }} özellik</span>
-                        </div>
-                    </div>
-                    @endif
-                </div>
-            </div>
-
-            <!-- Kaydet Butonu -->
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="bi bi-check-circle"></i> Değişiklikleri Kaydet
-                        </button>
-                        <a href="{{ route('admin.products.show', $product) }}" class="btn btn-outline-info">
-                            <i class="bi bi-eye"></i> Detayları Görüntüle
-                        </a>
-                        <a href="{{ route('admin.products.index') }}" class="btn btn-outline-secondary">
-                            <i class="bi bi-x-circle"></i> İptal
-                        </a>
-                        <hr>
-                        <form action="{{ route('admin.products.destroy', $product) }}" method="POST" 
-                              onsubmit="return confirm('Bu ürünü silmek istediğinizden emin misiniz?');">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn btn-outline-danger w-100">
-                                <i class="bi bi-trash"></i> Ürünü Sil
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</form>
 
 @push('scripts')
 <script>
-let imageCount = {{ count($images) }};
+    function productEditor() {
+        return {
+            productData: {
+                name: '{{ old('name', $product->name) }}',
+                model_code: '{{ old('model_code', $product->model_code) }}',
+                description: '{{ old('description', $product->description) }}',
+                sku: '{{ old('sku', $product->sku) }}',
+                price: '{{ old('price', $product->price) }}',
+                discount_price: '{{ old('discount_price', $product->discount_price) }}',
+                stock_quantity: '{{ old('stock_quantity', $product->stock_quantity) }}',
+                vat_rate: {{ old('vat_rate', $product->vat_rate ?? 20) }},
+                dimensional_weight: {{ old('dimensional_weight', $product->dimensional_weight ?? 1.0) }},
+                cargo_company_id: {{ old('cargo_company_id', $product->cargo_company_id ?? 'null') }},
+                category_id: '{{ old('category_id', $product->category_id) }}',
+                brand_id: '{{ old('brand_id', $product->brand_id) }}',
+                is_active: {{ old('is_active', $product->is_active) ? 'true' : 'false' }},
+                is_featured: {{ old('is_featured', $product->is_featured) ? 'true' : 'false' }}
+            },
+            variants: [],
+            attributes: [],
+            initializeProduct() {
+                // Load existing variants
+                @if($product->variants && $product->variants->count() > 0)
+                    @php
+                        $variantsData = $product->variants->map(function($variant) {
+                            return [
+                                'id' => $variant->id,
+                                'color' => $variant->color,
+                                'size' => $variant->size,
+                                'barcode' => $variant->barcode,
+                                'sku' => $variant->sku,
+                                'price' => $variant->price,
+                                'stock' => $variant->stock_quantity
+                            ];
+                        });
+                    @endphp
+                    this.variants = @json($variantsData);
+                @endif
+
+                // Load existing attributes
+                @if($product->productAttributes && $product->productAttributes->count() > 0)
+                    @php
+                        $attributesData = $product->productAttributes->map(function($attr) {
+                            return [
+                                'id' => $attr->id,
+                                'key' => $attr->attribute_name,
+                                'value' => $attr->attribute_value
+                            ];
+                        });
+                    @endphp
+                    this.attributes = @json($attributesData);
+                @endif
+            },
+            addVariant() {
+                this.variants.push({
+                    color: '',
+                    size: '',
+                    barcode: '',
+                    sku: '',
+                    price: this.productData.price || '',
+                    stock: ''
+                });
+            },
+            removeVariant(index) {
+                this.variants.splice(index, 1);
+            },
+            addAttribute() {
+                this.attributes.push({
+                    key: '',
+                    value: ''
+                });
+            },
+            removeAttribute(index) {
+                this.attributes.splice(index, 1);
+            },
+            prepareFormData() {
+                const variantsInput = document.querySelector('input[name="variants_json"]');
+                const attributesInput = document.querySelector('input[name="attributes_json"]');
+                
+                if (variantsInput) {
+                    variantsInput.value = JSON.stringify(this.variants);
+                }
+                
+                if (attributesInput) {
+                    attributesInput.value = JSON.stringify(this.attributes);
+                }
+            }
+        };
+    }
+</script>
+
+<script>
+let imageCount = {{ count($product->images ?? []) }};
 
 function addImageInput() {
     imageCount++;
@@ -914,4 +588,3 @@ document.getElementById('discount_price').addEventListener('input', function() {
 });
 </script>
 @endpush
-@endsection
