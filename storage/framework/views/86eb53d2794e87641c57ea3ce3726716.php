@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
+    <title><?php echo $__env->yieldContent('title', 'Admin Panel'); ?> - Marketplace</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <style>
+        .sidebar {
+            min-height: calc(100vh - 56px);
+            background-color: #212529;
+        }
+        .sidebar .nav-link {
+            color: rgba(255,255,255,.75);
+            padding: .75rem 1rem;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        .sidebar .nav-link:hover {
+            color: #fff;
+            background-color: rgba(255,255,255,.1);
+        }
+        .sidebar .nav-link.active {
+            color: #fff;
+            background-color: #0d6efd;
+        }
+        .sidebar .nav-link i.bi-chevron-down {
+            margin-left: auto;
+            font-size: 0.8rem;
+            transition: transform 0.3s;
+        }
+        .sidebar .nav-link[aria-expanded="true"] i.bi-chevron-down {
+            transform: rotate(180deg);
+        }
+        .sidebar .collapse .nav-link {
+            padding: .5rem 1rem;
+            font-size: 0.9rem;
+            color: rgba(255,255,255,.65);
+        }
+        .sidebar .collapse .nav-link:hover {
+            color: #fff;
+            background-color: rgba(255,255,255,.05);
+        }
+        .sidebar .collapse .nav-link.active {
+            color: #fff;
+            background-color: #0d6efd;
+        }
+    </style>
+    
+    <?php echo $__env->yieldPushContent('styles'); ?>
+</head>
+<body>
+    <!-- Top Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="<?php echo e(route('admin.dashboard')); ?>">
+                <i class="bi bi-shield-check"></i> Admin Panel
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="<?php echo e(route('home')); ?>" target="_blank">
+                            <i class="bi bi-box-arrow-up-right"></i> Siteyi Görüntüle
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> <?php echo e(auth()->user()->name); ?>
+
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <form method="POST" action="<?php echo e(route('logout')); ?>">
+                                    <?php echo csrf_field(); ?>
+                                    <button type="submit" class="dropdown-item">
+                                        <i class="bi bi-box-arrow-right"></i> Çıkış
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav class="col-md-2 d-md-block sidebar">
+                <div class="position-sticky pt-3">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo e(request()->routeIs('admin.dashboard') ? 'active' : ''); ?>" href="<?php echo e(route('admin.dashboard')); ?>">
+                                <i class="bi bi-speedometer2"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo e(request()->routeIs('admin.users.*') ? 'active' : ''); ?>" href="<?php echo e(route('admin.users.index')); ?>">
+                                <i class="bi bi-people"></i> Kullanıcılar
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo e(request()->routeIs('admin.brands.*') ? 'active' : ''); ?>" href="<?php echo e(route('admin.brands.index')); ?>">
+                                <i class="bi bi-tag"></i> Markalar
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo e(request()->routeIs('admin.categories.*') ? 'active' : ''); ?>" href="<?php echo e(route('admin.categories.index')); ?>">
+                                <i class="bi bi-grid"></i> Kategoriler
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo e(request()->routeIs('admin.options.*') ? 'active' : ''); ?>" href="<?php echo e(route('admin.options.index')); ?>">
+                                <i class="bi bi-sliders"></i> Opsiyonlar
+                            </a>
+                        </li>
+                        
+                        <!-- Ürünler Grup Menüsü -->
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo e(request()->is('admin/products*') || request()->is('admin/stock*') ? 'active' : ''); ?>" 
+                               href="#productsSubmenu" 
+                               data-bs-toggle="collapse" 
+                               aria-expanded="<?php echo e(request()->is('admin/products*') || request()->is('admin/stock*') ? 'true' : 'false'); ?>">
+                                <i class="bi bi-box-seam"></i> Ürünler
+                                <i class="bi bi-chevron-down ms-auto"></i>
+                            </a>
+                            <div class="collapse <?php echo e(request()->is('admin/products*') || request()->is('admin/stock*') ? 'show' : ''); ?>" id="productsSubmenu">
+                                <ul class="nav flex-column ms-3">
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo e(request()->routeIs('admin.products.index') ? 'active' : ''); ?>" 
+                                           href="<?php echo e(route('admin.products.index')); ?>">
+                                            Ürünler
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="#">
+                                            Satın Alma
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="#">
+                                            Transferler
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <?php echo e(request()->routeIs('admin.stock.*') ? 'active' : ''); ?>" 
+                                           href="<?php echo e(route('admin.stock.index')); ?>">
+                                            Stok Sayımı
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="#">
+                                            Tanımlamalar
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="#">
+                                            Fiyat Listesi
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="#">
+                                            Ürün Barkod Etiketi
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo e(request()->routeIs('admin.orders.*') ? 'active' : ''); ?>" href="<?php echo e(route('admin.orders.index')); ?>">
+                                <i class="bi bi-cart-check"></i> Siparişler
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo e(request()->routeIs('admin.payments.*') ? 'active' : ''); ?>" href="<?php echo e(route('admin.payments.index')); ?>">
+                                <i class="bi bi-credit-card"></i> Ödemeler
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo e(request()->routeIs('admin.reports.*') ? 'active' : ''); ?>" href="<?php echo e(route('admin.reports.index')); ?>">
+                                <i class="bi bi-graph-up"></i> Raporlar
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo e(request()->routeIs('admin.trendyol.*') ? 'active' : ''); ?>" href="<?php echo e(route('admin.trendyol.index')); ?>">
+                                <i class="bi bi-shop"></i> Trendyol Yönetimi
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="col-md-10 ms-sm-auto px-md-4">
+                <?php if(session('success')): ?>
+                    <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+                        <?php echo e(session('success')); ?>
+
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+
+                <?php if(session('error')): ?>
+                    <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+                        <?php echo e(session('error')); ?>
+
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+
+                <div class="py-4">
+                    <?php echo $__env->yieldContent('content'); ?>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    
+    <script>
+        $(document).ready(function() {
+            // DataTables konfigürasyonu
+            $('.datatable').DataTable({
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json"
+                },
+                "pageLength": 25,
+                "lengthMenu": [[25, 50, 100, -1], [25, 50, 100, "Tümü"]],
+                "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rt<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                "info": true,
+                "searching": true,
+                "ordering": true
+            });
+        });
+    </script>
+    
+    <?php echo $__env->yieldPushContent('scripts'); ?>
+</body>
+</html>
+<?php /**PATH C:\Users\LENOVO\marketplace-entegrasyonu\resources\views/layouts/admin.blade.php ENDPATH**/ ?>
