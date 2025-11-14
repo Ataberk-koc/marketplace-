@@ -48,27 +48,31 @@
                         <th style="width: 100px;">Envanter</th>
                         <th style="width: 100px;">Durum</th>
                         <th style="width: 150px;">Satış Kanalları</th>
+                        <th style="width: 120px;">İşlemler</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($products as $product)
+                    @forelse($products as $product)
                     <tr class="product-row">
                         <td>
                             <input type="checkbox" class="form-check-input product-checkbox">
                         </td>
                         <td>
-                            @if($product->main_image)
-                                <img src="{{ $product->main_image }}" alt="{{ $product->name }}" 
+                            @if(isset($product->images) && is_array($product->images) && count($product->images) > 0)
+                                <img src="{{ $product->images[0] }}" alt="{{ $product->name }}" 
                                      style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px;">
                             @else
-                                <div class="bg-secondary rounded" style="width: 50px; height: 50px; border-radius: 8px;"></div>
+                                <div class="bg-secondary rounded d-flex align-items-center justify-content-center text-white" 
+                                     style="width: 50px; height: 50px; border-radius: 8px;">
+                                    <i class="bi bi-image"></i>
+                                </div>
                             @endif
                         </td>
                         <td>
                             <div>
                                 <strong>{{ $product->name }}</strong>
                                 <div class="text-muted small">
-                                    {{ $product->model_code }} / {{ $product->sku ?? 'SKU yok' }}
+                                    {{ $product->model_code ?? 'Model yok' }} / {{ $product->sku ?? 'SKU yok' }}
                                 </div>
                             </div>
                         </td>
@@ -83,16 +87,19 @@
                             @endif
                         </td>
                         <td>
-                            @if($product->variants->count() > 0)
+                            @if($product->variants && $product->variants->count() > 0)
                                 <span class="badge bg-info">
                                     {{ $product->variants->sum('stock_quantity') }} adet<br>
                                     <small>{{ $product->variants->count() }} varyant</small>
                                 </span>
                             @else
-                                @if($product->stock > 10)
-                                    <span class="badge bg-success">{{ $product->stock }} adet</span>
-                                @elseif($product->stock > 0)
-                                    <span class="badge bg-warning">{{ $product->stock }} adet</span>
+                                @php
+                                    $stock = $product->stock_quantity ?? 0;
+                                @endphp
+                                @if($stock > 10)
+                                    <span class="badge bg-success">{{ $stock }} adet</span>
+                                @elseif($stock > 0)
+                                    <span class="badge bg-warning">{{ $stock }} adet</span>
                                 @else
                                     <span class="badge bg-danger">Stok yok</span>
                                 @endif
@@ -113,9 +120,39 @@
                                 </button>
                             </div>
                         </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ route('admin.products.edit', $product->id) }}" class="btn btn-outline-primary" title="Düzenle">
+                                    <i class="bi bi-pencil"></i> Düzenle
+                                </a>
+                                <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+                                    <span class="visually-hidden">Toggle Dropdown</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('admin.products.show', $product->id) }}">
+                                            <i class="bi bi-eye"></i> Görüntüle
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <form action="{{ route('admin.products.destroy', $product->id) }}" method="POST" 
+                                              onsubmit="return confirm('Bu ürünü silmek istediğinizden emin misiniz?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="dropdown-item text-danger">
+                                                <i class="bi bi-trash"></i> Sil
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        </td>
                     </tr>
-                    <tr class="border-0">
-                        <td colspan="8" class="p-0">
+                    
+                    <!-- Collapsible Variant Details Row -->
+                    <tr class="collapse-row">
+                        <td colspan="9" class="p-0">
                             <div class="collapse" id="product-{{ $product->id }}">
                                 <div class="d-flex bg-light border-top border-bottom" style="min-height: 400px;">
                                     <div class="bg-dark text-white border-end" style="width: 180px;">
@@ -353,8 +390,9 @@
                             </div>
                         </td>
                     </tr>
+                    
                     <tr class="border-0" style="height: 1px;">
-                        <td colspan="8" class="p-0 text-center">
+                        <td colspan="9" class="p-0 text-center">
                             <button class="btn btn-link btn-sm text-decoration-none" 
                                     data-bs-toggle="collapse" 
                                     data-bs-target="#product-{{ $product->id }}"
@@ -363,11 +401,37 @@
                             </button>
                         </td>
                     </tr>
-                    @endforeach
+
+                    @empty
+                    <tr>
+                        <td colspan="9" class="text-center py-5">
+                            <div class="text-muted">
+                                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                                <p class="mt-3 mb-0">Henüz ürün eklenmemiş</p>
+                                <a href="{{ route('admin.products.create') }}" class="btn btn-primary btn-sm mt-2">
+                                    <i class="bi bi-plus-circle"></i> İlk Ürünü Ekle
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>
     </div>
+    
+    @if($products->hasPages())
+    <div class="card-footer bg-white">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="text-muted small">
+                {{ $products->firstItem() }}-{{ $products->lastItem() }} arası gösteriliyor (Toplam: {{ $products->total() }})
+            </div>
+            <div>
+                {{ $products->links() }}
+            </div>
+        </div>
+    </div>
+    @endif
 </div>
 
 @push('scripts')

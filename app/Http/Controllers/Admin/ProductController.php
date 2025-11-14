@@ -17,11 +17,19 @@ use Illuminate\Http\Request;
 class ProductController extends Controller
 {
     /**
-     * Ürün listesini gösterir
+     * Ürün listesini gösterir - ENHANCED with debugging
      */
     public function index(Request $request)
     {
-        $query = Product::with(['brand', 'category', 'seller']);
+        // Better eager loading with variants
+        $query = Product::with([
+            'brand', 
+            'category', 
+            'seller',
+            'variants' => function($q) {
+                $q->select('product_id', 'stock_quantity', 'price', 'discount_price');
+            }
+        ]);
 
         // Kategori filtresi
         if ($request->filled('category_id')) {
@@ -43,7 +51,15 @@ class ProductController extends Controller
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
+        // Order by latest and paginate
         $products = $query->latest()->paginate(25);
+
+        // Debug: Log product count
+        \Log::info('Products loaded', [
+            'total' => $products->total(),
+            'count' => $products->count(),
+            'current_page' => $products->currentPage()
+        ]);
 
         $categories = Category::all();
         $brands = Brand::all();
