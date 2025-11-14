@@ -27,6 +27,9 @@ class Product extends Model
         'attributes',
         'is_active',
         'is_featured',
+        'meta_title',
+        'meta_keywords',
+        'meta_description',
     ];
 
     protected $casts = [

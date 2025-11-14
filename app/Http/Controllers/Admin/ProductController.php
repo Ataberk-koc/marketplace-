@@ -129,6 +129,9 @@ class ProductController extends Controller
                 'brand_id' => 'nullable|exists:brands,id',
                 'variants_json' => 'required|string',
                 'attributes_json' => 'nullable|string',
+                'meta_title' => 'nullable|string|max:60',
+                'meta_keywords' => 'nullable|string|max:255',
+                'meta_description' => 'nullable|string|max:160',
             ]);
 
             Log::info('✅ Validation passed');
@@ -187,6 +190,9 @@ class ProductController extends Controller
                 'images' => [],
                 'is_active' => true,
                 'is_featured' => false,
+                'meta_title' => $request->meta_title,
+                'meta_keywords' => $request->meta_keywords,
+                'meta_description' => $request->meta_description,
             ]);
 
             Log::info('✅ Main product created', ['product_id' => $product->id]);
@@ -327,52 +333,185 @@ class ProductController extends Controller
     }
 
     /**
-     * Ürün düzenleme formu
+     * Ürün düzenleme formu (Alpine.js full support)
      */
     public function edit(Product $product)
     {
-        $categories = Category::where('is_active', true)->get();
-        $brands = Brand::where('is_active', true)->get();
+        // Load all necessary relationships
+        $product->load([
+            'brand',
+            'category',
+            'variants' => function($query) {
+                $query->orderBy('sort_order');
+            },
+            'productAttributes' => function($query) {
+                $query->orderBy('display_order');
+            }
+        ]);
 
-        return view('admin.products.edit', compact('product', 'categories', 'brands'));
+        // Get available categories and brands
+        $categories = Category::where('is_active', true)->orderBy('name')->get();
+        $brands = Brand::where('is_active', true)->orderBy('name')->get();
+        
+        // Get defined options (for database options)
+        $definedOptions = \App\Models\Option::with('values')
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
+
+        return view('admin.products.edit', compact('product', 'categories', 'brands', 'definedOptions'));
     }
 
     /**
-     * Ürünü günceller
+     * Ürünü günceller (Alpine.js variants + attributes support)
      */
     public function update(Request $request, Product $product)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'sku' => 'required|string|max:100|unique:products,sku,' . $product->id,
-            'category_id' => 'required|exists:categories,id',
-            'brand_id' => 'required|exists:brands,id',
-            'price' => 'required|numeric|min:0',
-            'discount_price' => 'nullable|numeric|min:0|lt:price',
-            'stock_quantity' => 'required|integer|min:0',
-            'images' => 'nullable|array',
-            'images.*' => 'url',
-            'is_active' => 'boolean',
-            'is_featured' => 'boolean',
+        Log::info('🔄 PRODUCT UPDATE ATTEMPT', [
+            'product_id' => $product->id,
+            'request_all' => $request->all()
         ]);
 
-        $product->update([
-            'name' => $request->name,
-            'description' => $request->description,
-            'sku' => $request->sku,
-            'category_id' => $request->category_id,
-            'brand_id' => $request->brand_id,
-            'price' => $request->price,
-            'discount_price' => $request->discount_price,
-            'stock_quantity' => $request->stock_quantity,
-            'images' => $request->images ?? [],
-            'is_active' => $request->boolean('is_active'),
-            'is_featured' => $request->boolean('is_featured'),
-        ]);
+        try {
+            // Validation
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'model_code' => 'required|string|max:100',
+                'description' => 'nullable|string',
+                'category_id' => 'required|exists:categories,id',
+                'brand_id' => 'nullable|exists:brands,id',
+                'variants_json' => 'required|string',
+                'attributes_json' => 'nullable|string',
+                'meta_title' => 'nullable|string|max:60',
+                'meta_keywords' => 'nullable|string|max:255',
+                'meta_description' => 'nullable|string|max:160',
+            ]);
 
-        return redirect()->route('admin.products.index')
-            ->with('success', 'Ürün güncellendi!');
+            // Parse JSON
+            $variantsData = json_decode($request->variants_json, true);
+            if (json_last_error() !== JSON_ERROR_NONE || empty($variantsData)) {
+                throw new \Exception('Invalid variants data');
+            }
+
+            $attributesData = [];
+            if ($request->filled('attributes_json')) {
+                $attributesData = json_decode($request->attributes_json, true) ?: [];
+            }
+
+            DB::beginTransaction();
+
+            // Update slug if name changed
+            $slug = $product->slug;
+            if ($product->name !== $request->name) {
+                $slug = $this->generateUniqueSlug($request->name, $product->id);
+            }
+
+            // Update main product
+            $product->update([
+                'name' => $request->name,
+                'slug' => $slug,
+                'model_code' => $request->model_code,
+                'description' => $request->description,
+                'category_id' => $request->category_id,
+                'brand_id' => $request->brand_id,
+                'meta_title' => $request->meta_title,
+                'meta_keywords' => $request->meta_keywords,
+                'meta_description' => $request->meta_description,
+            ]);
+
+            Log::info('✅ Product main fields updated');
+
+            // Delete old variants
+            $product->variants()->delete();
+            Log::info('🗑️ Old variants deleted');
+
+            // Create new variants
+            $totalStock = 0;
+            $minPrice = PHP_INT_MAX;
+            $variantCount = 0;
+
+            foreach ($variantsData as $index => $variantData) {
+                $optionValues = [];
+                if (isset($variantData['option_mapping']) && is_array($variantData['option_mapping'])) {
+                    foreach ($variantData['option_mapping'] as $mapping) {
+                        $optionValues[] = [
+                            'option_id' => $mapping['option_id'] ?? null,
+                            'option_name' => $mapping['option_name'] ?? 'Unknown',
+                            'value_id' => $mapping['value_id'] ?? null,
+                            'value' => $mapping['value'] ?? 'Unknown',
+                        ];
+                    }
+                }
+
+                $price = floatval($variantData['price'] ?? 0);
+                $stock = intval($variantData['stock'] ?? 0);
+                
+                $totalStock += $stock;
+                if ($price > 0 && $price < $minPrice) {
+                    $minPrice = $price;
+                }
+
+                $variant = $product->variants()->create([
+                    'name' => $variantData['name'] ?? 'Variant ' . ($index + 1),
+                    'sku' => $variantData['sku'] ?? $product->sku . '-' . ($index + 1),
+                    'barcode' => $variantData['barcode'] ?? null,
+                    'price' => $price,
+                    'discount_price' => !empty($variantData['discount_price']) ? floatval($variantData['discount_price']) : null,
+                    'stock_quantity' => $stock,
+                    'option_values' => $optionValues,
+                    'attributes' => $variantData['attributes'] ?? [],
+                    'sort_order' => $index,
+                    'is_active' => true,
+                ]);
+
+                $variantCount++;
+            }
+
+            Log::info('✅ Variants created', ['count' => $variantCount]);
+
+            // Update product aggregates
+            $product->update([
+                'price' => $minPrice !== PHP_INT_MAX ? $minPrice : 0,
+                'stock_quantity' => $totalStock,
+            ]);
+
+            // Delete old product attributes
+            $product->productAttributes()->delete();
+            Log::info('🗑️ Old attributes deleted');
+
+            // Create new product attributes
+            if (!empty($attributesData)) {
+                foreach ($attributesData as $index => $attrData) {
+                    if (!empty($attrData['name']) && !empty($attrData['value'])) {
+                        $product->productAttributes()->create([
+                            'name' => $attrData['name'],
+                            'value' => $attrData['value'],
+                            'display_order' => $index,
+                        ]);
+                    }
+                }
+                Log::info('✅ Product attributes created', ['count' => count($attributesData)]);
+            }
+
+            DB::commit();
+            Log::info('✅ Product update completed successfully', ['product_id' => $product->id]);
+
+            return redirect()
+                ->route('admin.products.index')
+                ->with('success', 'Ürün başarıyla güncellendi!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('❌ Product update failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', 'Ürün güncellenemedi: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -517,16 +656,26 @@ class ProductController extends Controller
      * Generate a unique slug for the product
      * 
      * @param string $name Product name
+     * @param int|null $excludeId Product ID to exclude (for updates)
      * @return string Unique slug
      */
-    private function generateUniqueSlug(string $name): string
+    private function generateUniqueSlug(string $name, ?int $excludeId = null): string
     {
         $slug = Str::slug($name);
         $originalSlug = $slug;
         $counter = 1;
 
         // Check if slug exists (including soft-deleted records)
-        while (Product::withTrashed()->where('slug', $slug)->exists()) {
+        while (true) {
+            $query = Product::withTrashed()->where('slug', $slug);
+            if ($excludeId) {
+                $query->where('id', '!=', $excludeId);
+            }
+            
+            if (!$query->exists()) {
+                break;
+            }
+            
             // Append random string to make it unique
             $randomString = Str::lower(Str::random(4));
             $slug = $originalSlug . '-' . $randomString;

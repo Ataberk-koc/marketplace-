@@ -550,6 +550,81 @@
                         </div>
                     </div>
 
+                    <!-- SEO CARD -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h2 class="text-lg font-semibold text-gray-900 flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                SEO Ayarları
+                            </h2>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Meta Başlık
+                                </label>
+                                <input type="text" 
+                                       name="meta_title" 
+                                       x-model="seo.meta_title"
+                                       maxlength="60"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                       placeholder="Ürün adı - Marka adı">
+                                <p class="mt-1 text-xs text-gray-500">
+                                    <span x-text="seo.meta_title?.length || 0"></span>/60 karakter
+                                </p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Anahtar Kelimeler
+                                </label>
+                                <div class="tag-input" @@click="$refs.keywordInput?.focus()">
+                                    <template x-for="(keyword, index) in seo.keywords" :key="index">
+                                        <span class="tag-item">
+                                            <span x-text="keyword"></span>
+                                            <button type="button" @@click="removeKeyword(index)" class="ml-1 hover:text-red-200">×</button>
+                                        </span>
+                                    </template>
+                                    <input type="text"
+                                           x-ref="keywordInput"
+                                           x-model="seo.currentKeyword"
+                                           @@keydown.enter.prevent="addKeyword"
+                                           @@keydown.comma.prevent="addKeyword"
+                                           class="flex-1 min-w-[120px] border-0 outline-none text-sm"
+                                           placeholder="Kelime yazıp Enter'a basın">
+                                </div>
+                                <input type="hidden" name="meta_keywords" :value="seo.keywords.join(', ')">
+                                <p class="mt-1 text-xs text-gray-500">Enter veya virgül ile ekleyin</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Meta Açıklama
+                                </label>
+                                <textarea name="meta_description" 
+                                          x-model="seo.meta_description"
+                                          rows="3"
+                                          maxlength="160"
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                          placeholder="Ürün hakkında kısa açıklama..."></textarea>
+                                <p class="mt-1 text-xs text-gray-500">
+                                    <span x-text="seo.meta_description?.length || 0"></span>/160 karakter
+                                </p>
+                            </div>
+
+                            <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p class="text-xs text-blue-800">
+                                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    SEO alanları boş bırakılırsa otomatik doldurulur
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- SUBMIT BUTTON -->
                     <div class="bg-white shadow rounded-lg">
                         <div class="p-6">
@@ -579,6 +654,14 @@ function productCreator() {
         options: [],
         variants: [],
         product_attributes: [],
+        
+        // SEO Fields
+        seo: {
+            meta_title: '',
+            meta_description: '',
+            keywords: [],
+            currentKeyword: ''
+        },
         
         quickFill: {
             price: null,
@@ -793,6 +876,19 @@ function productCreator() {
             });
             
             alert('Boş alanlar dolduruldu!');
+        },
+
+        // SEO Methods
+        addKeyword() {
+            const keyword = this.seo.currentKeyword.trim();
+            if (keyword && !this.seo.keywords.includes(keyword)) {
+                this.seo.keywords.push(keyword);
+            }
+            this.seo.currentKeyword = '';
+        },
+
+        removeKeyword(index) {
+            this.seo.keywords.splice(index, 1);
         },
 
         // Computed JSON for form submission

@@ -3,51 +3,520 @@
 @section('title', 'Ürün Düzenle')
 
 @section('content')
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-pencil-square"></i> Ürün Düzenle: {{ $product->name }}</h2>
-    <div class="btn-group">
-        <a href="{{ route('admin.products.show', $product) }}" class="btn btn-info">
-            <i class="bi bi-eye"></i> Detayları Görüntüle
-        </a>
-        <a href="{{ route('admin.products.index') }}" class="btn btn-secondary">
-            <i class="bi bi-arrow-left"></i> Geri Dön
-        </a>
+<div x-data="productEditor()" x-init="initializeProduct()">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">
+            <i class="bi bi-pencil-square"></i> Ürün Düzenle
+        </h2>
+        <div class="flex gap-2">
+            <a href="{{ route('admin.products.show', $product) }}" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                <i class="bi bi-eye"></i> Detayları Görüntüle
+            </a>
+            <a href="{{ route('admin.products.index') }}" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                <i class="bi bi-arrow-left"></i> Geri Dön
+            </a>
+        </div>
     </div>
-</div>
 
-<form action="{{ route('admin.products.update', $product) }}" method="POST" id="productForm">
-    @csrf
-    @method('PUT')
-    
-    <div class="row">
-        <!-- Sol Kolon -->
-        <div class="col-lg-8">
-            <!-- Genel Bilgiler -->
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Genel Bilgiler</h5>
+    @if ($errors->any())
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <strong>Hata!</strong>
+            <ul class="mt-2">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <form action="{{ route('admin.products.update', $product) }}" method="POST" @submit="prepareFormData">
+        @csrf
+        @method('PUT')
+        
+        <!-- Hidden inputs for JSON data -->
+        <input type="hidden" name="variants_json" x-model="JSON.stringify(variants)">
+        <input type="hidden" name="attributes_json" x-model="JSON.stringify(attributes)">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Ana Bilgiler - 2/3 genişlik -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- Genel Bilgiler -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">
+                        <i class="bi bi-info-circle"></i> Genel Bilgiler
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Ürün Adı <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" 
+                                   name="name" 
+                                   x-model="productData.name"
+                                   class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   required>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Model Kodu <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" 
+                                   name="model_code" 
+                                   x-model="productData.model_code"
+                                   class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   required>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Açıklama
+                            </label>
+                            <textarea name="description" 
+                                      x-model="productData.description"
+                                      rows="4"
+                                      class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label for="name" class="form-label">Ürün Adı <span class="text-danger">*</span></label>
-                        <input type="text" 
-                               class="form-control @error('name') is-invalid @enderror" 
-                               id="name" 
-                               name="name" 
-                               value="{{ old('name', $product->name) }}" 
-                               required>
-                        @error('name')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
+
+                <!-- Varyantlar -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h3 class="text-lg font-semibold text-gray-700">
+                            <i class="bi bi-layers"></i> Varyantlar
+                        </h3>
+                        <button type="button" 
+                                @click="addVariant"
+                                class="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600">
+                            <i class="bi bi-plus-circle"></i> Varyant Ekle
+                        </button>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="sku" class="form-label">SKU (Stok Kodu) <span class="text-danger">*</span></label>
-                        <input type="text" 
-                               class="form-control @error('sku') is-invalid @enderror" 
-                               id="sku" 
-                               name="sku" 
-                               value="{{ old('sku', $product->sku) }}" 
+                    <div class="space-y-3">
+                        <template x-for="(variant, index) in variants" :key="index">
+                            <div class="border border-gray-200 rounded p-4 bg-gray-50">
+                                <div class="flex justify-between items-start mb-3">
+                                    <span class="text-sm font-medium text-gray-600">Varyant #<span x-text="index + 1"></span></span>
+                                    <button type="button" 
+                                            @click="removeVariant(index)"
+                                            class="text-red-500 hover:text-red-700">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 mb-1">Renk</label>
+                                        <input type="text" 
+                                               x-model="variant.color"
+                                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 mb-1">Beden</label>
+                                        <input type="text" 
+                                               x-model="variant.size"
+                                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 mb-1">Barkod <span class="text-red-500">*</span></label>
+                                        <input type="text" 
+                                               x-model="variant.barcode"
+                                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                               required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 mb-1">Stok Kodu</label>
+                                        <input type="text" 
+                                               x-model="variant.sku"
+                                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 mb-1">Fiyat (₺) <span class="text-red-500">*</span></label>
+                                        <input type="number" 
+                                               step="0.01" 
+                                               x-model="variant.price"
+                                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                               required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 mb-1">Stok <span class="text-red-500">*</span></label>
+                                        <input type="number" 
+                                               x-model="variant.stock"
+                                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                               required>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div x-show="variants.length === 0" class="text-center py-8 text-gray-500">
+                            <i class="bi bi-inbox text-4xl"></i>
+                            <p class="mt-2">Henüz varyant eklenmedi</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Özellikler -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h3 class="text-lg font-semibold text-gray-700">
+                            <i class="bi bi-tags"></i> Özellikler
+                        </h3>
+                        <button type="button" 
+                                @click="addAttribute"
+                                class="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600">
+                            <i class="bi bi-plus-circle"></i> Özellik Ekle
+                        </button>
+                    </div>
+
+                    <div class="space-y-3">
+                        <template x-for="(attr, index) in attributes" :key="index">
+                            <div class="flex gap-2 items-start">
+                                <div class="flex-1">
+                                    <input type="text" 
+                                           x-model="attr.key"
+                                           placeholder="Özellik Adı (örn: Malzeme)"
+                                           class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+                                </div>
+                                <div class="flex-1">
+                                    <input type="text" 
+                                           x-model="attr.value"
+                                           placeholder="Değer (örn: %100 Pamuk)"
+                                           class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+                                </div>
+                                <button type="button" 
+                                        @click="removeAttribute(index)"
+                                        class="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </template>
+
+                        <div x-show="attributes.length === 0" class="text-center py-8 text-gray-500">
+                            <i class="bi bi-tags text-4xl"></i>
+                            <p class="mt-2">Henüz özellik eklenmedi</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hazır Doldur Bölümü -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">
+                        <i class="bi bi-lightning-charge"></i> Hazır Doldur
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Seçenekler</label>
+                            <div class="flex flex-wrap gap-2">
+                                <template x-for="option in definedOptions" :key="option.id">
+                                    <button type="button"
+                                            @click="quickFillOption(option)"
+                                            class="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600">
+                                        <span x-text="option.name"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-3">
+                            <p class="text-sm text-blue-700">
+                                <i class="bi bi-info-circle"></i>
+                                Yukarıdaki butonlara tıklayarak varyant ve özellik alanlarını otomatik doldurabilirsiniz.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SEO Bilgileri -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">
+                        <i class="bi bi-search"></i> SEO Bilgileri
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Meta Başlık
+                                <span class="text-xs text-gray-500">(Maksimum 60 karakter)</span>
+                            </label>
+                            <input type="text" 
+                                   name="meta_title" 
+                                   x-model="seo.meta_title"
+                                   maxlength="60"
+                                   class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <div class="text-xs text-gray-500 mt-1">
+                                <span x-text="seo.meta_title.length"></span>/60 karakter
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Meta Anahtar Kelimeler
+                                <span class="text-xs text-gray-500">(Enter veya virgül ile ayırın)</span>
+                            </label>
+                            <div class="border border-gray-300 rounded p-2 min-h-[60px] flex flex-wrap gap-2">
+                                <template x-for="(keyword, index) in seo.keywords" :key="index">
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded">
+                                        <span x-text="keyword"></span>
+                                        <button type="button" 
+                                                @click="removeKeyword(index)"
+                                                class="text-blue-600 hover:text-blue-800">
+                                            ×
+                                        </button>
+                                    </span>
+                                </template>
+                                <input type="text" 
+                                       x-model="seo.currentKeyword"
+                                       @keydown.enter.prevent="addKeyword"
+                                       @keydown.comma.prevent="addKeyword"
+                                       placeholder="Anahtar kelime ekle..."
+                                       class="flex-1 min-w-[200px] border-none focus:outline-none">
+                            </div>
+                            <input type="hidden" name="meta_keywords" x-model="seo.keywords.join(', ')">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Meta Açıklama
+                                <span class="text-xs text-gray-500">(Maksimum 160 karakter)</span>
+                            </label>
+                            <textarea name="meta_description" 
+                                      x-model="seo.meta_description"
+                                      maxlength="160"
+                                      rows="3"
+                                      class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            <div class="text-xs text-gray-500 mt-1">
+                                <span x-text="seo.meta_description.length"></span>/160 karakter
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Yan Bilgiler - 1/3 genişlik -->
+            <div class="lg:col-span-1 space-y-6">
+                
+                <!-- Kategori ve Marka -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">
+                        <i class="bi bi-folder"></i> Kategori ve Marka
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Kategori <span class="text-red-500">*</span>
+                            </label>
+                            <select name="category_id" 
+                                    x-model="productData.category_id"
+                                    class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required>
+                                <option value="">Seçiniz...</option>
+                                @foreach($categories as $category)
+                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Marka
+                            </label>
+                            <select name="brand_id" 
+                                    x-model="productData.brand_id"
+                                    class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Seçiniz...</option>
+                                @foreach($brands as $brand)
+                                    <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Durum -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">
+                        <i class="bi bi-toggle-on"></i> Durum
+                    </h3>
+                    
+                    <div class="space-y-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" 
+                                   name="is_active" 
+                                   value="1"
+                                   x-model="productData.is_active"
+                                   class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <span class="ml-2 text-sm text-gray-700">Aktif</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- İşlemler -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <button type="submit" 
+                            class="w-full bg-blue-500 text-white py-3 rounded font-semibold hover:bg-blue-600 transition">
+                        <i class="bi bi-check-circle"></i> Değişiklikleri Kaydet
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </form>
+
+    <!-- Alpine.js Component Script -->
+    <script>
+        function productEditor() {
+            return {
+                productData: {
+                    name: '',
+                    model_code: '',
+                    description: '',
+                    category_id: '',
+                    brand_id: '',
+                    is_active: true
+                },
+                variants: [],
+                attributes: [],
+                seo: {
+                    meta_title: '',
+                    meta_description: '',
+                    keywords: [],
+                    currentKeyword: ''
+                },
+                definedOptions: @json($definedOptions),
+
+                initializeProduct() {
+                    const product = @json($product);
+                    
+                    // Temel bilgiler
+                    this.productData = {
+                        name: product.name || '',
+                        model_code: product.model_code || '',
+                        description: product.description || '',
+                        category_id: product.category_id ? String(product.category_id) : '',
+                        brand_id: product.brand_id ? String(product.brand_id) : '',
+                        is_active: product.is_active === 1 || product.is_active === true
+                    };
+
+                    // SEO bilgileri
+                    this.seo = {
+                        meta_title: product.meta_title || '',
+                        meta_description: product.meta_description || '',
+                        keywords: product.meta_keywords ? product.meta_keywords.split(',').map(k => k.trim()).filter(k => k) : [],
+                        currentKeyword: ''
+                    };
+
+                    // Varyantlar
+                    if (product.variants && product.variants.length > 0) {
+                        this.variants = product.variants.map(v => ({
+                            color: v.color || '',
+                            size: v.size || '',
+                            barcode: v.barcode || '',
+                            sku: v.sku || '',
+                            price: v.price || '',
+                            stock: v.stock || 0
+                        }));
+                    }
+
+                    // Özellikler
+                    if (product.product_attributes && product.product_attributes.length > 0) {
+                        this.attributes = product.product_attributes.map(a => ({
+                            key: a.attribute_key || '',
+                            value: a.attribute_value || ''
+                        }));
+                    }
+                },
+
+                addVariant() {
+                    this.variants.push({
+                        color: '',
+                        size: '',
+                        barcode: '',
+                        sku: '',
+                        price: '',
+                        stock: 0
+                    });
+                },
+
+                removeVariant(index) {
+                    this.variants.splice(index, 1);
+                },
+
+                addAttribute() {
+                    this.attributes.push({
+                        key: '',
+                        value: ''
+                    });
+                },
+
+                removeAttribute(index) {
+                    this.attributes.splice(index, 1);
+                },
+
+                quickFillOption(option) {
+                    // Varyantları temizle ve yenilerini ekle
+                    this.variants = [];
+                    
+                    option.values.forEach(value => {
+                        this.variants.push({
+                            color: value.color || '',
+                            size: value.size || '',
+                            barcode: '',
+                            sku: '',
+                            price: '',
+                            stock: 0
+                        });
+                    });
+
+                    // Özellikleri temizle ve yenilerini ekle
+                    this.attributes = [];
+                    
+                    if (option.attributes && option.attributes.length > 0) {
+                        option.attributes.forEach(attr => {
+                            this.attributes.push({
+                                key: attr.key || '',
+                                value: attr.value || ''
+                            });
+                        });
+                    }
+                },
+
+                addKeyword() {
+                    const keyword = this.seo.currentKeyword.trim();
+                    if (keyword && !this.seo.keywords.includes(keyword)) {
+                        this.seo.keywords.push(keyword);
+                    }
+                    this.seo.currentKeyword = '';
+                },
+
+                removeKeyword(index) {
+                    this.seo.keywords.splice(index, 1);
+                },
+
+                prepareFormData(event) {
+                    // Form gönderilmeden önce JSON verilerini hazırla
+                    const variantsInput = event.target.querySelector('input[name="variants_json"]');
+                    const attributesInput = event.target.querySelector('input[name="attributes_json"]');
+                    
+                    if (variantsInput) {
+                        variantsInput.value = JSON.stringify(this.variants);
+                    }
+                    
+                    if (attributesInput) {
+                        attributesInput.value = JSON.stringify(this.attributes);
+                    }
+                }
+            };
+        }
+    </script>
+</div>
+@endsection 
                                placeholder="Örn: PRD-001"
                                required>
                         <small class="form-text text-muted">Benzersiz ürün kodu olmalıdır</small>
