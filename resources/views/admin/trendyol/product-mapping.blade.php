@@ -76,20 +76,24 @@
 
                         <hr class="my-4">
 
-                        <!-- ADIM 4: Trendyol Marka Seç -->
+                        <!-- ADIM 4: Trendyol Marka Gir (MANUEL) -->
                         <div class="mb-4" id="trendyolBrandSection" style="display:none;">
                             <label class="form-label fw-bold">
                                 <span class="badge bg-success me-2">4</span> Trendyol Markası
                             </label>
-                            <select name="trendyol_brand_id" id="trendyolBrandSelect" class="form-select" required>
-                                <option value="">Trendyol markası seçin...</option>
-                                @foreach($trendyolBrands as $brand)
-                                    <option value="{{ $brand['id'] }}" data-name="{{ $brand['name'] }}">
-                                        {{ $brand['name'] }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <input type="hidden" name="trendyol_brand_name" id="trendyolBrandName">
+                            
+                            <input 
+                                type="text" 
+                                name="trendyol_brand_name" 
+                                class="form-control form-control-lg" 
+                                placeholder="Marka adını yazın (örn: Nike, Adidas, Puma...)"
+                                required
+                            >
+                            
+                            <small class="text-muted d-block mt-1">
+                                <i class="fas fa-keyboard"></i> 
+                                Trendyol'daki marka adını tam olarak yazın
+                            </small>
                         </div>
 
                         <!-- ADIM 5: Trendyol Kategori Seç -->
@@ -671,7 +675,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const productSelect = document.getElementById('productSelect');
     const trendyolBrandSection = document.getElementById('trendyolBrandSection');
     const trendyolCategorySection = document.getElementById('trendyolCategorySection');
-    const trendyolBrandSelect = document.getElementById('trendyolBrandSelect');
     const trendyolCategorySelect = document.getElementById('trendyolCategorySelect');
 
     console.log('✅ JavaScript yüklendi!');
@@ -765,12 +768,6 @@ document.addEventListener('DOMContentLoaded', function() {
             trendyolCategorySection.style.display = 'none';
             attributesSection.style.display = 'none';
         }
-    });
-
-    // Trendyol marka seçildiğinde hidden inputa kaydet
-    trendyolBrandSelect.addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        document.getElementById('trendyolBrandName').value = selectedOption.getAttribute('data-name');
     });
 
     // Trendyol kategori seçildiğinde hidden inputa kaydet ve özellikleri yükle

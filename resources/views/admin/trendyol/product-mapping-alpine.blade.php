@@ -110,28 +110,27 @@
 
                         <hr class="my-4" x-show="selectedProduct">
 
-                        <!-- ADIM 4: Trendyol Marka Seç -->
+                        <!-- ADIM 4: Trendyol Marka Gir (MANUEL TEXT INPUT) -->
                         <div class="mb-4" x-show="selectedProduct" x-transition>
                             <label class="form-label fw-bold">
                                 <span class="badge bg-success me-2">4</span> Trendyol Markası
                             </label>
-                            <select x-model="selectedTrendyolBrand" 
-                                    name="trendyol_brand_id"
-                                    @change="onTrendyolBrandChange()"
-                                    class="form-select" 
-                                    required>
-                                <option value="">Trendyol markası seçin...</option>
-                                @foreach($trendyolBrands as $brand)
-                                    <option value="{{ $brand['id'] }}" data-name="{{ $brand['name'] }}">
-                                        {{ $brand['name'] }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <input type="hidden" name="trendyol_brand_name" x-model="selectedTrendyolBrandName">
+                            <input 
+                                type="text" 
+                                name="trendyol_brand_name"
+                                x-model="selectedTrendyolBrandName"
+                                class="form-control form-control-lg" 
+                                placeholder="Marka adını yazın (örn: Nike, Adidas, Puma...)"
+                                required
+                            >
+                            <small class="text-muted d-block mt-1">
+                                <i class="fas fa-keyboard"></i> 
+                                Trendyol'daki marka adını tam olarak yazın
+                            </small>
                         </div>
 
                         <!-- ADIM 5: Trendyol Kategori Seç -->
-                        <div class="mb-4" x-show="selectedTrendyolBrand" x-transition>
+                        <div class="mb-4" x-show="selectedTrendyolBrandName" x-transition>
                             <label class="form-label fw-bold">
                                 <span class="badge bg-success me-2">5</span> Trendyol Kategorisi
                             </label>
@@ -386,7 +385,6 @@ function productMapping() {
         selectedBrand: '',
         selectedCategory: '',
         selectedProduct: '',
-        selectedTrendyolBrand: '',
         selectedTrendyolBrandName: '',
         selectedTrendyolCategory: '',
         selectedTrendyolCategoryName: '',
@@ -406,7 +404,7 @@ function productMapping() {
         // Computed
         get canSubmit() {
             return this.selectedProduct && 
-                   this.selectedTrendyolBrand && 
+                   this.selectedTrendyolBrandName && 
                    this.selectedTrendyolCategory;
         },
         
@@ -483,13 +481,6 @@ function productMapping() {
                 this.productSalePrice = product.sale_price ? product.sale_price + ' ₺' : '-';
                 this.productSizes = product.sizes || [];
             }
-        },
-        
-        onTrendyolBrandChange() {
-            const select = document.querySelector('select[name="trendyol_brand_id"]');
-            const selectedOption = select.options[select.selectedIndex];
-            this.selectedTrendyolBrandName = selectedOption.getAttribute('data-name') || '';
-            console.log('🏷️ Trendyol markası seçildi:', this.selectedTrendyolBrand);
         },
         
         async onTrendyolCategoryChange() {
