@@ -441,8 +441,24 @@
                 is_featured: <?php echo e(old('is_featured', $product->is_featured) ? 'true' : 'false'); ?>
 
             },
+            seo: {
+                meta_title: '<?php echo e(old('meta_title', $product->meta_title ?? '')); ?>',
+                meta_description: '<?php echo e(old('meta_description', $product->meta_description ?? '')); ?>',
+                keywords: <?php echo json_encode(old('meta_keywords') ? explode(', ', old('meta_keywords')) : ($product->meta_keywords ? explode(', ', $product->meta_keywords) : [])); ?>,
+                currentKeyword: ''
+            },
             variants: [],
             attributes: [],
+            addKeyword() {
+                const keyword = this.seo.currentKeyword.trim();
+                if (keyword && !this.seo.keywords.includes(keyword)) {
+                    this.seo.keywords.push(keyword);
+                }
+                this.seo.currentKeyword = '';
+            },
+            removeKeyword(index) {
+                this.seo.keywords.splice(index, 1);
+            },
             initializeProduct() {
                 // Load existing variants
                 <?php if($product->variants && $product->variants->count() > 0): ?>
