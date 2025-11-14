@@ -339,6 +339,54 @@
                     </div>
                 </div>
 
+                <!-- Kargo & Vergi -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">
+                        <i class="bi bi-truck"></i> Kargo & Vergi
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                KDV Oranı (%) <span class="text-red-500">*</span>
+                            </label>
+                            <select name="vat_rate" 
+                                    x-model="productData.vat_rate"
+                                    required
+                                    class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="0">%0</option>
+                                <option value="1">%1</option>
+                                <option value="10">%10</option>
+                                <option value="20">%20</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Desi <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number" 
+                                   name="dimensional_weight" 
+                                   x-model="productData.dimensional_weight"
+                                   step="0.01"
+                                   min="0.01"
+                                   required
+                                   class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Kargo Şirketi ID
+                            </label>
+                            <input type="number" 
+                                   name="cargo_company_id" 
+                                   x-model="productData.cargo_company_id"
+                                   min="1"
+                                   class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Durum -->
                 <div class="bg-white rounded-lg shadow p-6">
                     <h3 class="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">
@@ -401,6 +449,9 @@
                         description: product.description || '',
                         category_id: product.category_id ? String(product.category_id) : '',
                         brand_id: product.brand_id ? String(product.brand_id) : '',
+                        vat_rate: product.vat_rate ? String(product.vat_rate) : '20',
+                        dimensional_weight: product.dimensional_weight || 1.0,
+                        cargo_company_id: product.cargo_company_id || '',
                         is_active: product.is_active === 1 || product.is_active === true
                     };
 

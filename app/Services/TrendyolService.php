@@ -1367,25 +1367,31 @@ class TrendyolService
                 $staticAttributeResult['attributes']
             );
 
-            // Trendyol item payload oluştur
+            // Trendyol item payload oluştur (API v2 format - 100% match)
             $item = [
-                'barcode' => $variant->sku ?? $product->sku . '-' . $variant->id,
+                'barcode' => $variant->barcode ?? $variant->sku ?? $product->sku . '-' . $variant->id,
                 'title' => $product->name,
-                'productMainId' => $product->sku, // Ana ürün grubu ID
-                'brandId' => $trendyolBrandId,
-                'categoryId' => $trendyolCategoryId,
-                'quantity' => $variant->stock ?? 0,
-                'stockCode' => $variant->sku ?? '',
-                'dimensionalWeight' => 0,
-                'description' => $product->description ?? '',
+                'productMainId' => (string) $product->model_code, // Ana ürün grubu ID (model_code kullan)
+                'brandId' => (int) $trendyolBrandId,
+                'categoryId' => (int) $trendyolCategoryId,
+                'quantity' => (int) ($variant->stock ?? 0),
+                'stockCode' => $variant->sku ?? $variant->barcode ?? '',
+                'dimensionalWeight' => (float) ($product->dimensional_weight ?? 1.0), // ✅ DB'den
+                'description' => $product->description ?? $product->name,
                 'currencyType' => 'TRY',
                 'listPrice' => (float) $variant->price,
                 'salePrice' => (float) ($variant->sale_price ?? $variant->price),
-                'vatRate' => 10, // KDV oranı (varsayılan %10)
-                'cargoCompanyId' => 10, // Kargo firması (varsayılan: Aras)
-                'images' => $this->prepareProductImages($product),
+                'vatRate' => (int) ($product->vat_rate ?? 20), // ✅ DB'den (varsayılan %20)
+                'cargoCompanyId' => $product->cargo_company_id ? (int) $product->cargo_company_id : null, // ✅ DB'den (opsiyonel)
+                'deliveryDuration' => 3, // Teslimat süresi (gün)
+                'images' => $this->prepareProductImages($product, $variant),
                 'attributes' => $allAttributes
             ];
+
+            // cargoCompanyId null ise API formatına uygun olarak kaldır
+            if ($item['cargoCompanyId'] === null) {
+                unset($item['cargoCompanyId']);
+            }
 
             // Debug için local attribute bilgilerini temizle (API'ye gönderme)
             foreach ($item['attributes'] as &$attr) {
@@ -1415,22 +1421,32 @@ class TrendyolService
     }
 
     /**
-     * Product images hazırla
+     * Product images hazırla (Variant bazlı)
      * 
      * @param Product $product
-     * @return array Image URLs
+     * @param ProductVariant|null $variant
+     * @return array Image URLs (Trendyol API v2 format)
      */
-    protected function prepareProductImages(Product $product)
+    protected function prepareProductImages(Product $product, $variant = null)
     {
-        // Bu örnekte basit bir image array döndürüyoruz
-        // Gerçek uygulamada product->images relationship kullanılabilir
         $images = [];
 
-        if ($product->image) {
-            $images[] = ['url' => url($product->image)];
+        // Variant'a özel image varsa (color/size bazlı)
+        if ($variant && !empty($variant->image)) {
+            $images[] = ['url' => url($variant->image)];
         }
 
-        // Minimum 1 image gerekli
+        // Ana product images (already cast as array in model)
+        if (!empty($product->images) && is_array($product->images)) {
+            foreach ($product->images as $img) {
+                $imageUrl = is_array($img) ? ($img['url'] ?? $img) : $img;
+                if ($imageUrl) {
+                    $images[] = ['url' => url($imageUrl)];
+                }
+            }
+        }
+
+        // Minimum 1 image gerekli (Trendyol API requirement)
         if (empty($images)) {
             $images[] = ['url' => url('/images/no-image.jpg')];
         }
